@@ -1,0 +1,19 @@
+{
+  "name": "41 Cards",
+  "short_name": "41 Cards",
+  "description": "Permainan kartu 41 multiplayer realtime.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#06130f",
+  "theme_color": "#052e25",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

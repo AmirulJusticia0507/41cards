@@ -7,6 +7,7 @@ const suitInfo = {
 const avatars = ["👩🏽", "👨🏻", "👩🏻", "🧑🏽", "👩🏾", "👨🏽", "👩🏻‍🦱", "🧑🏻"];
 let game = null;
 let lastStatus = null;
+let installPrompt = null;
 
 function cardMarkup(card, extraClass = "") {
   if (!card) return '<span id="discard-card" class="playing-card opacity-20"></span>';
@@ -147,6 +148,23 @@ $("#close-lobby").addEventListener("click", () => $("#lobby-dialog").close());
 $("#room-badge").addEventListener("click", () => navigator.clipboard?.writeText(game.code));
 $("#lobby-room-code").addEventListener("click", () => navigator.clipboard?.writeText(game.code));
 window.addEventListener("resize", () => game && renderHand());
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  installPrompt = event;
+  $("#install-button").classList.remove("hidden");
+});
+window.addEventListener("appinstalled", () => {
+  installPrompt = null;
+  $("#install-button").classList.add("hidden");
+});
+$("#install-button").addEventListener("click", async () => {
+  if (installPrompt) {
+    await installPrompt.prompt();
+    installPrompt = null;
+    $("#install-button").classList.add("hidden");
+  }
+});
 
 $("#lobby-dialog").showModal();
 socket.connect();
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));

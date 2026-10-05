@@ -59,6 +59,7 @@ Pemain dengan skor tertinggi menjadi pemenang. Jika skor seri, hasil ronde dinya
 - Room privat dengan kode undangan.
 - Nama pemain diisi dari perangkat masing-masing.
 - Mode penonton tanpa akses ke kartu rahasia.
+- Dapat dipasang ke layar utama sebagai PWA.
 - Pengacakan dan pembagian kartu.
 - Mekanisme ambil dan buang kartu.
 - Perhitungan skor otomatis.
@@ -108,6 +109,13 @@ vercel --prod
 ```
 
 State room saat ini disimpan dalam memori proses. Untuk penggunaan produksi dengan banyak instance, pindahkan state dan koordinasi room ke Redis.
+
+## Instal di HP
+
+- Android/Chrome: buka situs lalu tekan tombol **Install** atau pilih **Tambahkan ke layar utama** dari menu browser.
+- iPhone/Safari: tekan **Share**, lalu pilih **Add to Home Screen**.
+
+PWA menyimpan kerangka tampilan untuk pemuatan lebih cepat, tetapi permainan multiplayer tetap memerlukan koneksi internet.
 
 ## Referensi aturan
 
