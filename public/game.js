@@ -1,4 +1,4 @@
-const socket = io({ autoConnect: false });
+const socket = io({ autoConnect: false, transports: ["websocket"] });
 const $ = (selector) => document.querySelector(selector);
 const suitInfo = {
   spades: { symbol: "♠", red: false }, hearts: { symbol: "♥", red: true },

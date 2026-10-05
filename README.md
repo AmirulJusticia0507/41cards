@@ -101,7 +101,13 @@ Pemain dan penonton dapat menekan **Keluar** di kanan atas atau membuka menu **R
 
 ## Deploy online
 
-Deploy proyek ke layanan yang mendukung Node.js dan WebSocket seperti Render atau Railway. Gunakan perintah build `npm install` dan start `npm start`. Server membaca port dari environment variable `PORT`.
+Proyek dapat di-deploy ke Vercel yang mendukung WebSocket melalui Fluid Compute. Konfigurasi Vercel Function tersedia di `api/socket-io.js` dan `vercel.json`.
+
+```bash
+vercel --prod
+```
+
+State room saat ini disimpan dalam memori proses. Untuk penggunaan produksi dengan banyak instance, pindahkan state dan koordinasi room ke Redis.
 
 ## Referensi aturan
 

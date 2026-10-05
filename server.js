@@ -6,12 +6,12 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, { path: "/socket.io" });
 const rooms = new Map();
 const suits = ["spades", "hearts", "diamonds", "clubs"];
 const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, "public")));
 
 function cleanName(value) {
   return String(value || "Pemain").trim().slice(0, 18) || "Pemain";
@@ -222,4 +222,6 @@ io.on("connection", (socket) => {
 });
 
 const port = process.env.PORT || 5500;
-server.listen(port, () => console.log(`41 Cards berjalan di http://localhost:${port}`));
+if (require.main === module) server.listen(port, () => console.log(`41 Cards berjalan di http://localhost:${port}`));
+
+module.exports = server;
