@@ -1,168 +1,139 @@
-const suits = [
-  { key: "spades", symbol: "♠", red: false },
-  { key: "hearts", symbol: "♥", red: true },
-  { key: "diamonds", symbol: "♦", red: true },
-  { key: "clubs", symbol: "♣", red: false },
-];
-const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-const bots = [
-  { name: "Rani", avatar: "👩🏽" },
-  { name: "Bima", avatar: "👨🏻" },
-  { name: "Sari", avatar: "👩🏻" },
-];
-
-let game;
+const socket = io({ autoConnect: false });
 const $ = (selector) => document.querySelector(selector);
-
-function cardValue(rank) {
-  if (rank === "A") return 11;
-  if (["J", "Q", "K"].includes(rank)) return 10;
-  return Number(rank);
-}
-
-function scoreHand(hand) {
-  const totals = Object.fromEntries(suits.map((suit) => [suit.key, 0]));
-  hand.forEach((card) => totals[card.suit.key] += cardValue(card.rank));
-  return Math.max(...Object.values(totals));
-}
-
-function makeDeck() {
-  const deck = suits.flatMap((suit) => ranks.map((rank) => ({ suit, rank })));
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
-}
-
-function startGame() {
-  const deck = makeDeck();
-  const players = [{ name: "Kamu", hand: [] }, ...bots.map((bot) => ({ ...bot, hand: [] }))];
-  for (let round = 0; round < 4; round++) players.forEach((player) => player.hand.push(deck.pop()));
-  game = { deck, discard: [deck.pop()], players, current: 0, phase: "draw", over: false };
-  $("#result-dialog").close();
-  setMessage("Ambil satu kartu dari tumpukan atau buangan.");
-  render();
-}
+const suitInfo = {
+  spades: { symbol: "♠", red: false }, hearts: { symbol: "♥", red: true },
+  diamonds: { symbol: "♦", red: true }, clubs: { symbol: "♣", red: false },
+};
+const avatars = ["👩🏽", "👨🏻", "👩🏻", "🧑🏽", "👩🏾", "👨🏽", "👩🏻‍🦱", "🧑🏻"];
+let game = null;
+let lastStatus = null;
 
 function cardMarkup(card, extraClass = "") {
-  return `<span class="playing-card ${card.suit.red ? "red" : ""} ${extraClass}">
-    <span class="rank">${card.rank}<span class="corner-suit">${card.suit.symbol}</span></span>
-    <span class="big-suit">${card.suit.symbol}</span>
-  </span>`;
+  if (!card) return '<span id="discard-card" class="playing-card opacity-20"></span>';
+  const suit = suitInfo[card.suit];
+  return `<span class="playing-card ${suit.red ? "red" : ""} ${extraClass}"><span class="rank">${card.rank}<span class="corner-suit">${suit.symbol}</span></span><span class="big-suit">${suit.symbol}</span></span>`;
 }
 
-function render() {
-  const player = game.players[0];
+function renderHand() {
+  const hand = game?.me?.hand || [];
   const handEl = $("#player-hand");
-  handEl.innerHTML = player.hand.map((card, index) => {
-    const count = player.hand.length;
-    const center = (count - 1) / 2;
-    const offset = index - center;
+  handEl.innerHTML = hand.map((card, index) => {
+    const offset = index - (hand.length - 1) / 2;
     const x = offset * (window.innerWidth < 640 ? 49 : 67);
-    const rotate = offset * 7;
-    const y = Math.abs(offset) * 4;
-    return `<button class="hand-card ${game.phase !== "discard" ? "disabled" : ""}" data-card-index="${index}" style="z-index:${index + 10};transform:translateX(${x}px) translateY(${y}px) rotate(${rotate}deg)" aria-label="Buang ${card.rank} ${card.suit.key}">${cardMarkup(card)}</button>`;
+    return `<button class="hand-card ${game.phase !== "discard" ? "disabled" : ""}" data-card-index="${index}" style="z-index:${index + 10};transform:translateX(${x}px) translateY(${Math.abs(offset) * 4}px) rotate(${offset * 7}deg)">${cardMarkup(card)}</button>`;
   }).join("");
-
-  handEl.querySelectorAll(".hand-card").forEach((button) => button.addEventListener("click", () => discardPlayerCard(Number(button.dataset.cardIndex))));
-  $("#discard-card").outerHTML = cardMarkup(game.discard.at(-1), "") .replace("<span", '<span id="discard-card"');
-  $("#deck-count").textContent = game.deck.length;
-  $("#player-score").textContent = `Skor ${scoreHand(player.hand)}`;
-  $("#opponents").innerHTML = game.players.slice(1).map((bot, index) => `
-    <div class="opponent ${game.current === index + 1 ? "active" : ""}">
-      <div class="avatar">${bot.avatar}</div>
-      <div class="mt-1 text-xs font-semibold">${bot.name}</div>
-      <div class="text-[10px] text-white/45">4 kartu</div>
-      <div class="mini-hand">${bot.hand.map(() => '<i class="mini-card"></i>').join("")}</div>
-    </div>`).join("");
-  $("#turn-badge").textContent = game.current === 0 ? (game.phase === "draw" ? "Giliran kamu • ambil kartu" : "Giliran kamu • buang kartu") : `Giliran ${game.players[game.current].name}`;
-  $("#deck").disabled = game.over || game.current !== 0 || game.phase !== "draw" || !game.deck.length;
-  $("#discard-pile").disabled = game.over || game.current !== 0 || game.phase !== "draw" || !game.discard.length;
+  handEl.querySelectorAll(".hand-card").forEach((button) => button.addEventListener("click", () => {
+    if (game.phase === "discard") socket.emit("discard-card", Number(button.dataset.cardIndex));
+  }));
 }
 
-function setMessage(text) { $("#message").textContent = text; }
-
-function drawForPlayer(source) {
-  if (game.over || game.current !== 0 || game.phase !== "draw") return;
-  const pile = source === "deck" ? game.deck : game.discard;
-  if (!pile.length) return;
-  game.players[0].hand.push(pile.pop());
-  game.phase = "discard";
-  setMessage("Sekarang pilih satu kartu di tangan untuk dibuang.");
-  render();
+function renderTable() {
+  if (!game) return;
+  const others = game.players.filter((player) => !player.you);
+  $("#opponents").innerHTML = others.map((player, index) => `<div class="opponent ${player.current ? "active" : ""} ${player.connected ? "" : "opacity-40"}"><div class="avatar">${avatars[index % avatars.length]}</div><div class="mt-1 max-w-full truncate px-1 text-xs font-semibold">${escapeHtml(player.name)}</div><div class="text-[10px] text-white/45">${player.connected ? `${player.cardCount} kartu` : "terputus"}</div><div class="mini-hand">${Array.from({ length: player.cardCount }, () => '<i class="mini-card"></i>').join("")}</div></div>`).join("");
+  renderHand();
+  $("#discard-card").outerHTML = cardMarkup(game.discard).replace("<span", '<span id="discard-card"');
+  $("#deck-count").textContent = game.deckCount;
+  $("#player-score").textContent = game.spectator ? "Mode Penonton" : `Skor ${game.me?.score || 0}`;
+  const myTurn = game.phase === "draw" || game.phase === "discard";
+  $("#turn-badge").textContent = game.status === "waiting" ? "Menunggu pemain" : game.status === "finished" ? "Ronde selesai" : myTurn ? `Giliran kamu • ${game.phase === "draw" ? "ambil kartu" : "buang kartu"}` : `Giliran ${game.currentName}`;
+  $("#message").textContent = game.status === "waiting" ? "Permainan belum dimulai." : game.status === "finished" ? "Host dapat memulai ronde baru." : game.spectator ? `Kamu menonton permainan • giliran ${game.currentName}` : myTurn ? (game.phase === "draw" ? "Ambil kartu dari tumpukan atau buangan." : "Pilih satu kartu untuk dibuang.") : `Menunggu ${game.currentName}…`;
+  $("#deck").disabled = game.phase !== "draw";
+  $("#discard-pile").disabled = game.phase !== "draw" || !game.discard;
+  $(".hand-zone").classList.toggle("opacity-30", game.spectator);
 }
 
-function discardPlayerCard(index) {
-  if (game.over || game.current !== 0 || game.phase !== "discard") return;
-  game.discard.push(game.players[0].hand.splice(index, 1)[0]);
-  if (scoreHand(game.players[0].hand) === 41) return endGame("forty-one");
-  game.current = 1;
-  game.phase = "waiting";
-  setMessage("Lawan sedang memilih kartu…");
-  render();
-  window.setTimeout(playBotTurn, 650);
+function renderLobby() {
+  if (!game) return;
+  $("#join-panel").classList.add("hidden");
+  $("#waiting-panel").classList.remove("hidden");
+  $("#close-lobby").classList.remove("hidden");
+  $("#lobby-room-code").textContent = game.code;
+  $("#room-badge").textContent = game.code;
+  $("#room-badge").classList.remove("hidden");
+  $("#lobby-players").innerHTML = game.players.map((player, index) => `<div class="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3"><span>${avatars[index % avatars.length]}</span><span class="flex-1 text-sm font-semibold">${escapeHtml(player.name)}${player.you ? " (kamu)" : ""}</span><span class="text-[10px] ${player.connected ? "text-emerald-300" : "text-red-300"}">${player.connected ? "ONLINE" : "PUTUS"}</span></div>`).join("");
+  $("#lobby-status").textContent = game.spectator ? "Kamu masuk sebagai penonton." : `${game.players.length}/${game.maxPlayers} pemain • minimal 2 pemain`;
+  $("#start-button").classList.toggle("hidden", !game.host || game.players.length < 2 || game.status === "playing");
 }
 
-function bestDiscardIndex(hand) {
-  let bestIndex = 0;
-  let bestScore = -1;
-  hand.forEach((_, index) => {
-    const score = scoreHand(hand.filter((card, cardIndex) => cardIndex !== index));
-    if (score > bestScore) { bestScore = score; bestIndex = index; }
+function showResult() {
+  const winnerText = game.winners.join(" & ");
+  const won = game.winners.includes(game.me?.name);
+  $("#result-icon").textContent = won ? "🏆" : "🃏";
+  $("#result-title").textContent = won ? (game.winners.length > 1 ? "Hasil Seri" : "Kamu Menang!") : `${winnerText} Menang`;
+  $("#result-copy").textContent = game.spectator ? `Pemenang: ${winnerText}.` : `Skor akhir kamu ${game.me.score}. Pemenang: ${winnerText}.`;
+  $("#replay-button").classList.toggle("hidden", !game.host);
+  if (!$("#result-dialog").open) $("#result-dialog").showModal();
+}
+
+function escapeHtml(value) { const node = document.createElement("div"); node.textContent = value; return node.innerHTML; }
+function showError(message) { $("#lobby-error").textContent = message; $("#lobby-error").classList.remove("hidden"); }
+function identityKey(code) { return `41cards:${code}:playerKey`; }
+function saveSession(data) { localStorage.setItem("41cards:session", JSON.stringify(data)); }
+function loadSession() { try { return JSON.parse(localStorage.getItem("41cards:session")); } catch { return null; } }
+function resetLobby() {
+  game = null;
+  lastStatus = null;
+  localStorage.removeItem("41cards:session");
+  $("#waiting-panel").classList.add("hidden");
+  $("#join-panel").classList.remove("hidden");
+  $("#close-lobby").classList.add("hidden");
+  $("#room-badge").classList.add("hidden");
+  $("#lobby-error").classList.add("hidden");
+  if (!$("#lobby-dialog").open) $("#lobby-dialog").showModal();
+}
+function joinRoom(spectator = false) {
+  const code = $("#room-code").value.trim().toUpperCase();
+  const name = $("#player-name").value.trim();
+  if (!code || (!spectator && !name)) return showError("Isi nama dan kode room terlebih dahulu.");
+  socket.emit("join-room", { code, name, spectator, playerKey: localStorage.getItem(identityKey(code)) }, (response) => {
+    if (!response.ok) return showError(response.error);
+    if (response.playerKey) localStorage.setItem(identityKey(response.code), response.playerKey);
+    saveSession({ code: response.code, name, spectator, playerKey: response.playerKey });
+    $("#lobby-error").classList.add("hidden");
   });
-  return bestIndex;
 }
 
-function playBotTurn() {
-  if (game.over) return;
-  const bot = game.players[game.current];
-  const topDiscard = game.discard.at(-1);
-  const currentScore = scoreHand(bot.hand);
-  const withDiscard = [...bot.hand, topDiscard];
-  const useDiscard = scoreHand(withDiscard.filter((_, i) => i !== bestDiscardIndex(withDiscard))) > currentScore;
-  const drawn = useDiscard ? game.discard.pop() : game.deck.pop();
-  if (!drawn) return endGame("empty");
-  bot.hand.push(drawn);
-  game.discard.push(bot.hand.splice(bestDiscardIndex(bot.hand), 1)[0]);
-  if (scoreHand(bot.hand) === 41) return endGame("forty-one");
+socket.on("state", (state) => {
+  game = state;
+  renderTable();
+  renderLobby();
+  if (state.status === "playing" && $("#lobby-dialog").open) $("#lobby-dialog").close();
+  if (state.status === "finished" && lastStatus !== "finished") showResult();
+  lastStatus = state.status;
+});
+socket.on("notice", showError);
+socket.on("disconnect", () => { if (game) $("#message").textContent = "Koneksi terputus. Mencoba menyambung kembali…"; });
+socket.on("connect", () => {
+  const session = loadSession();
+  if (session) socket.emit("join-room", session, (response) => { if (!response.ok) localStorage.removeItem("41cards:session"); });
+});
 
-  game.current++;
-  if (game.current >= game.players.length) {
-    if (!game.deck.length) return endGame("empty");
-    game.current = 0;
-    game.phase = "draw";
-    setMessage("Giliran kamu. Ambil satu kartu.");
-    render();
-  } else {
-    setMessage("Lawan sedang memilih kartu…");
-    render();
-    window.setTimeout(playBotTurn, 650);
-  }
-}
-
-function endGame() {
-  game.over = true;
-  const scores = game.players.map((player) => scoreHand(player.hand));
-  const bestScore = Math.max(...scores);
-  const winners = scores.map((score, index) => score === bestScore ? index : -1).filter((index) => index >= 0);
-  const playerWon = winners.includes(0);
-  $("#result-icon").textContent = playerWon ? "🏆" : "🃏";
-  $("#result-title").textContent = winners.length > 1 && playerWon ? "Hasil Seri" : playerWon ? "Kamu Menang!" : `${game.players[winners[0]].name} Menang`;
-  $("#result-copy").textContent = `Skor akhir kamu ${scores[0]}. Skor tertinggi ronde ini ${bestScore}.`;
-  setMessage("Ronde telah selesai.");
-  render();
-  $("#result-dialog").showModal();
-}
-
-$("#deck").addEventListener("click", () => drawForPlayer("deck"));
-$("#discard-pile").addEventListener("click", () => drawForPlayer("discard"));
-$("#new-game-button").addEventListener("click", startGame);
-$("#replay-button").addEventListener("click", startGame);
+$("#create-button").addEventListener("click", () => {
+  const name = $("#player-name").value.trim();
+  if (!name) return showError("Isi nama kamu terlebih dahulu.");
+  socket.emit("create-room", { name, maxPlayers: Number($("#max-players").value) }, (response) => {
+    if (!response.ok) return showError(response.error);
+    localStorage.setItem(identityKey(response.code), response.playerKey);
+    saveSession({ code: response.code, name, spectator: false, playerKey: response.playerKey });
+  });
+});
+$("#join-button").addEventListener("click", () => joinRoom(false));
+$("#watch-button").addEventListener("click", () => joinRoom(true));
+$("#start-button").addEventListener("click", () => socket.emit("start-round"));
+$("#leave-button").addEventListener("click", () => socket.emit("leave-room", () => resetLobby()));
+$("#deck").addEventListener("click", () => socket.emit("draw-card", "deck"));
+$("#discard-pile").addEventListener("click", () => socket.emit("draw-card", "discard"));
+$("#replay-button").addEventListener("click", () => { $("#result-dialog").close(); socket.emit("start-round"); });
+$("#close-result").addEventListener("click", () => $("#result-dialog").close());
 $("#rules-button").addEventListener("click", () => $("#rules-dialog").showModal());
 $("#close-rules").addEventListener("click", () => $("#rules-dialog").close());
 $("#play-button").addEventListener("click", () => $("#rules-dialog").close());
-window.addEventListener("resize", render);
+$("#lobby-button").addEventListener("click", () => $("#lobby-dialog").showModal());
+$("#close-lobby").addEventListener("click", () => $("#lobby-dialog").close());
+$("#room-badge").addEventListener("click", () => navigator.clipboard?.writeText(game.code));
+$("#lobby-room-code").addEventListener("click", () => navigator.clipboard?.writeText(game.code));
+window.addEventListener("resize", () => game && renderHand());
 
-startGame();
-$("#rules-dialog").showModal();
+$("#lobby-dialog").showModal();
+socket.connect();

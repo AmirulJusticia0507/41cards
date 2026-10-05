@@ -29,7 +29,7 @@ Contoh:
 ### Persiapan
 
 - Menggunakan satu set kartu remi standar berisi 52 kartu tanpa Joker.
-- Dimainkan oleh 2–4 pemain.
+- Dimainkan oleh 2–8 pemain.
 - Setiap pemain menerima empat kartu.
 - Sisa kartu diletakkan tertutup sebagai tumpukan ambil.
 - Satu kartu dibuka sebagai awal tumpukan buang.
@@ -53,10 +53,12 @@ Ronde berakhir ketika:
 
 Pemain dengan skor tertinggi menjadi pemenang. Jika skor seri, hasil ronde dinyatakan seri pada versi awal permainan.
 
-## Ruang lingkup MVP
+## Fitur
 
-- Permainan lokal satu pemain melawan bot.
-- Satu meja dengan total 2–4 pemain.
+- Multiplayer realtime untuk 2–8 pemain.
+- Room privat dengan kode undangan.
+- Nama pemain diisi dari perangkat masing-masing.
+- Mode penonton tanpa akses ke kartu rahasia.
 - Pengacakan dan pembagian kartu.
 - Mekanisme ambil dan buang kartu.
 - Perhitungan skor otomatis.
@@ -64,7 +66,7 @@ Pemain dengan skor tertinggi menjadi pemenang. Jika skor seri, hasil ronde dinya
 - Tombol untuk memulai ronde baru.
 - Antarmuka responsif untuk desktop dan ponsel.
 
-Belum termasuk multiplayer daring, akun, taruhan, chat, peringkat, atau penyimpanan progres.
+Belum termasuk akun, taruhan, chat, peringkat, atau penyimpanan progres permanen.
 
 ## Prinsip permainan
 
@@ -75,20 +77,31 @@ Belum termasuk multiplayer daring, akun, taruhan, chat, peringkat, atau penyimpa
 
 ## Menjalankan permainan
 
-Buka `index.html` langsung di browser atau jalankan melalui web server lokal:
+Butuhkan Node.js 18 atau lebih baru. Instal dan jalankan:
 
-```text
-http://localhost/41cards/
+```bash
+npm install
+npm start
 ```
 
-Tidak ada proses build atau instalasi dependensi. Tailwind CSS dan font dimuat melalui CDN.
+Buka `http://localhost:5500`. Untuk mencoba dari HP pada Wi-Fi yang sama, buka alamat IP komputer, misalnya `http://192.168.1.10:5500`.
 
 ## Cara bermain versi web
 
-1. Klik tumpukan **Ambil** atau **Buangan**.
-2. Setelah tangan berisi lima kartu, klik satu kartu untuk membuangnya.
-3. Tiga bot akan menjalankan giliran secara otomatis.
-4. Ronde selesai saat ada pemain mencapai 41 atau tumpukan kartu habis.
+1. Host mengisi nama, menentukan kapasitas, lalu membuat room.
+2. Pemain lain membuka aplikasi, mengisi nama dan kode room, lalu bergabung.
+3. Host memulai permainan setelah minimal dua pemain hadir.
+4. Saat mendapat giliran, klik tumpukan **Ambil** atau **Buangan**.
+5. Setelah tangan berisi lima kartu, klik satu kartu untuk membuangnya.
+6. Ronde selesai saat ada pemain mencapai 41 atau tumpukan kartu habis.
+
+Penonton memasukkan kode room lalu memilih **Masuk sebagai penonton**. Mereka dapat memantau meja dan giliran, tetapi tidak dapat melihat kartu rahasia atau melakukan aksi permainan.
+
+Pemain dan penonton dapat membuka menu **Room** lalu memilih **Keluar Room**. Jika host keluar, status host otomatis diberikan kepada pemain berikutnya.
+
+## Deploy online
+
+Deploy proyek ke layanan yang mendukung Node.js dan WebSocket seperti Render atau Railway. Gunakan perintah build `npm install` dan start `npm start`. Server membaca port dari environment variable `PORT`.
 
 ## Referensi aturan
 
