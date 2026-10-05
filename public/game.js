@@ -30,15 +30,24 @@ function renderHand() {
 
 function renderTable() {
   if (!game) return;
+  const poker = game.gameType === "poker";
   const others = game.players.filter((player) => !player.you);
-  $("#opponents").innerHTML = others.map((player, index) => `<div class="opponent ${player.current ? "active" : ""} ${player.connected ? "" : "opacity-40"}"><div class="avatar">${avatars[index % avatars.length]}</div><div class="mt-1 max-w-full truncate px-1 text-xs font-semibold">${escapeHtml(player.name)}</div><div class="text-[10px] text-white/45">${player.connected ? `${player.cardCount} kartu` : "terputus"}</div><div class="mini-hand">${Array.from({ length: player.cardCount }, () => '<i class="mini-card"></i>').join("")}</div></div>`).join("");
+  $("#opponents").innerHTML = others.map((player, index) => `<div class="opponent ${player.current || (poker && !player.acted && !player.folded) ? "active" : ""} ${player.connected && !player.folded ? "" : "opacity-40"}"><div class="avatar">${avatars[index % avatars.length]}</div><div class="mt-1 max-w-full truncate px-1 text-xs font-semibold">${escapeHtml(player.name)}</div><div class="text-[10px] text-white/45">${player.folded ? "fold" : player.connected ? `${player.cardCount} kartu` : "terputus"}</div><div class="mini-hand">${Array.from({ length: player.cardCount }, () => '<i class="mini-card"></i>').join("")}</div></div>`).join("");
   renderHand();
-  $("#discard-card").outerHTML = cardMarkup(game.discard).replace("<span", '<span id="discard-card"');
+  $("#forty-one-piles").classList.toggle("hidden", poker);
+  $("#poker-board").classList.toggle("hidden", !poker);
+  if (poker) {
+    $("#community-cards").innerHTML = Array.from({ length: 5 }, (_, index) => game.community[index] ? cardMarkup(game.community[index], "poker-card") : '<span class="playing-card poker-card card-back opacity-40"></span>').join("");
+    const canAct = game.phase === "poker-action";
+    $("#poker-actions").classList.toggle("invisible", !canAct);
+  } else {
+    $("#discard-card").outerHTML = cardMarkup(game.discard).replace("<span", '<span id="discard-card"');
+  }
   $("#deck-count").textContent = game.deckCount;
-  $("#player-score").textContent = game.spectator ? "Mode Penonton" : `Skor ${game.me?.score || 0}`;
+  $("#player-score").textContent = game.spectator ? "Mode Penonton" : poker ? (game.players.find((player) => player.you)?.folded ? "Fold" : game.pokerStage || "Poker") : `Skor ${game.me?.score || 0}`;
   const myTurn = game.phase === "draw" || game.phase === "discard";
-  $("#turn-badge").textContent = game.status === "waiting" ? "Menunggu pemain" : game.status === "finished" ? "Ronde selesai" : myTurn ? `Giliran kamu • ${game.phase === "draw" ? "ambil kartu" : "buang kartu"}` : `Giliran ${game.currentName}`;
-  $("#message").textContent = game.status === "waiting" ? "Permainan belum dimulai." : game.status === "finished" ? "Host dapat memulai ronde baru." : game.spectator ? `Kamu menonton permainan • giliran ${game.currentName}` : myTurn ? (game.phase === "draw" ? "Ambil kartu dari tumpukan atau buangan." : "Pilih satu kartu untuk dibuang.") : `Menunggu ${game.currentName}…`;
+  $("#turn-badge").textContent = game.status === "waiting" ? "Menunggu pemain" : game.status === "finished" ? "Ronde selesai" : poker ? `Texas Hold'em • ${game.pokerStage}` : myTurn ? `Giliran kamu • ${game.phase === "draw" ? "ambil kartu" : "buang kartu"}` : `Giliran ${game.currentName}`;
+  $("#message").textContent = game.status === "waiting" ? "Permainan belum dimulai." : game.status === "finished" ? "Host dapat memulai ronde baru." : poker ? (game.phase === "poker-action" ? "Pilih Lanjut untuk membuka tahap berikutnya, atau Fold." : "Menunggu keputusan pemain lain…") : game.spectator ? `Kamu menonton permainan • giliran ${game.currentName}` : myTurn ? (game.phase === "draw" ? "Ambil kartu dari tumpukan atau buangan." : "Pilih satu kartu untuk dibuang.") : `Menunggu ${game.currentName}…`;
   $("#deck").disabled = game.phase !== "draw";
   $("#discard-pile").disabled = game.phase !== "draw" || !game.discard;
   $(".hand-zone").classList.toggle("opacity-30", game.spectator);
@@ -53,6 +62,8 @@ function renderLobby() {
   $("#room-badge").textContent = game.code;
   $("#room-badge").classList.remove("hidden");
   $("#leave-header-button").classList.remove("hidden");
+  $("#game-switch").value = game.gameType;
+  $("#game-switch").disabled = true;
   $("#lobby-players").innerHTML = game.players.map((player, index) => `<div class="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3"><span>${avatars[index % avatars.length]}</span><span class="flex-1 text-sm font-semibold">${escapeHtml(player.name)}${player.you ? " (kamu)" : ""}</span><span class="text-[10px] ${player.connected ? "text-emerald-300" : "text-red-300"}">${player.connected ? "ONLINE" : "PUTUS"}</span></div>`).join("");
   $("#lobby-status").textContent = game.spectator ? "Kamu masuk sebagai penonton." : `${game.players.length}/${game.maxPlayers} pemain • minimal 2 pemain`;
   $("#start-button").classList.toggle("hidden", !game.host || game.players.length < 2 || game.status === "playing");
@@ -63,7 +74,7 @@ function showResult() {
   const won = game.winners.includes(game.me?.name);
   $("#result-icon").textContent = won ? "🏆" : "🃏";
   $("#result-title").textContent = won ? (game.winners.length > 1 ? "Hasil Seri" : "Kamu Menang!") : `${winnerText} Menang`;
-  $("#result-copy").textContent = game.spectator ? `Pemenang: ${winnerText}.` : `Skor akhir kamu ${game.me.score}. Pemenang: ${winnerText}.`;
+  $("#result-copy").textContent = game.gameType === "poker" || game.spectator ? `Pemenang: ${winnerText}.` : `Skor akhir kamu ${game.me.score}. Pemenang: ${winnerText}.`;
   $("#replay-button").classList.toggle("hidden", !game.host);
   if (!$("#result-dialog").open) $("#result-dialog").showModal();
 }
@@ -80,7 +91,7 @@ function resetLobby() {
   localStorage.removeItem("41cards:session");
   $("#waiting-panel").classList.add("hidden");
   $("#join-panel").classList.remove("hidden");
-  $("#close-lobby").classList.add("hidden");
+  $("#game-switch").disabled = false;
   $("#room-badge").classList.add("hidden");
   $("#leave-header-button").classList.add("hidden");
   $("#lobby-error").classList.add("hidden");
@@ -125,7 +136,7 @@ socket.on("connect", () => {
 $("#create-button").addEventListener("click", () => {
   const name = $("#player-name").value.trim();
   if (!name) return showError("Isi nama kamu terlebih dahulu.");
-  socket.emit("create-room", { name, maxPlayers: Number($("#max-players").value) }, (response) => {
+  socket.emit("create-room", { name, maxPlayers: Number($("#max-players").value), gameType: $("#game-switch").value }, (response) => {
     if (!response.ok) return showError(response.error);
     localStorage.setItem(identityKey(response.code), response.playerKey);
     saveSession({ code: response.code, name, spectator: false, playerKey: response.playerKey });
@@ -138,6 +149,8 @@ $("#leave-button").addEventListener("click", leaveRoom);
 $("#leave-header-button").addEventListener("click", leaveRoom);
 $("#deck").addEventListener("click", () => socket.emit("draw-card", "deck"));
 $("#discard-pile").addEventListener("click", () => socket.emit("draw-card", "discard"));
+$("#check-button").addEventListener("click", () => socket.emit("poker-action", "check"));
+$("#fold-button").addEventListener("click", () => socket.emit("poker-action", "fold"));
 $("#replay-button").addEventListener("click", () => { $("#result-dialog").close(); socket.emit("start-round"); });
 $("#close-result").addEventListener("click", () => $("#result-dialog").close());
 $("#rules-button").addEventListener("click", () => $("#rules-dialog").showModal());

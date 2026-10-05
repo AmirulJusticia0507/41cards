@@ -56,6 +56,7 @@ Pemain dengan skor tertinggi menjadi pemenang. Jika skor seri, hasil ronde dinya
 ## Fitur
 
 - Multiplayer realtime untuk 2–8 pemain.
+- Pilihan permainan 41 Cards atau Texas Hold'em sederhana dari switch di pojok atas.
 - Room privat dengan kode undangan.
 - Nama pemain diisi dari perangkat masing-masing.
 - Mode penonton tanpa akses ke kartu rahasia.
@@ -95,6 +96,8 @@ Buka `http://localhost:5500`. Untuk mencoba dari HP pada Wi-Fi yang sama, buka a
 4. Saat mendapat giliran, klik tumpukan **Ambil** atau **Buangan**.
 5. Setelah tangan berisi lima kartu, klik satu kartu untuk membuangnya.
 6. Ronde selesai saat ada pemain mencapai 41 atau tumpukan kartu habis.
+
+Untuk Texas Hold'em, setiap pemain menerima dua kartu pribadi. Pilih **Lanjut** atau **Fold** pada setiap tahap; kartu komunitas dibuka sebagai flop, turn, dan river. Setelah river, server menentukan kombinasi lima kartu terbaik. Versi awal ini belum memakai chip atau taruhan.
 
 Penonton memasukkan kode room lalu memilih **Masuk sebagai penonton**. Mereka dapat memantau meja dan giliran, tetapi tidak dapat melihat kartu rahasia atau melakukan aksi permainan.
 
