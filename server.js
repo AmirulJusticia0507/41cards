@@ -10,6 +10,7 @@ const io = new Server(server, { path: "/socket.io" });
 const rooms = new Map();
 const suits = ["spades", "hearts", "diamonds", "clubs"];
 const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const botNames = ["Rani CPU", "Bima CPU", "Sari CPU", "Dika CPU", "Maya CPU", "Raka CPU", "Nina CPU"];
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -28,7 +29,7 @@ function roomCode() {
 function makeDeck() {
   const deck = suits.flatMap((suit) => ranks.map((rank) => ({ suit, rank })));
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = crypto.randomInt(i + 1);
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
@@ -95,6 +96,7 @@ function publicState(room, socket) {
       name: player.name,
       cardCount: player.hand.length,
       connected: player.connected,
+      bot: player.bot || false,
       folded: player.folded || false,
       acted: room.acted?.has(player.key) || false,
       current: index === room.current,
@@ -185,21 +187,60 @@ function nextTurn(room) {
   if (attempts > room.players.length) return finish(room);
   room.phase = "draw";
   broadcast(room);
+  if (room.players[room.current].bot) setTimeout(() => playBot41(room), 500);
+}
+
+function bestDiscard(hand) {
+  let bestIndex = 0;
+  let bestScore = -1;
+  hand.forEach((_, index) => {
+    const candidate = score(hand.filter((card, cardIndex) => cardIndex !== index));
+    if (candidate > bestScore) { bestScore = candidate; bestIndex = index; }
+  });
+  return bestIndex;
+}
+
+function playBot41(room) {
+  if (room.status !== "playing") return;
+  const bot = room.players[room.current];
+  if (!bot?.bot) return;
+  const topDiscard = room.discard.at(-1);
+  const testHand = topDiscard ? [...bot.hand, topDiscard] : bot.hand;
+  const useDiscard = topDiscard && score(testHand.filter((_, index) => index !== bestDiscard(testHand))) > score(bot.hand);
+  const drawn = useDiscard ? room.discard.pop() : room.deck.pop();
+  if (!drawn) return finish(room);
+  bot.hand.push(drawn);
+  room.discard.push(bot.hand.splice(bestDiscard(bot.hand), 1)[0]);
+  if (score(bot.hand) === 41) return finish(room);
+  nextTurn(room);
+}
+
+function playPokerBots(room) {
+  room.players.filter((player) => player.bot && !player.folded && !room.acted.has(player.key)).forEach((bot) => {
+    const foldChance = room.revealed === 0 ? 18 : 10;
+    if (crypto.randomInt(100) < foldChance && room.players.filter((player) => !player.folded).length > 2) bot.folded = true;
+    room.acted.add(bot.key);
+  });
 }
 
 io.on("connection", (socket) => {
-  socket.on("create-room", ({ name, maxPlayers, playerKey, gameType } = {}, reply) => {
+  socket.on("create-room", ({ name, maxPlayers, playerKey, gameType, opponentMode } = {}, reply) => {
     const code = roomCode();
     const key = String(playerKey || crypto.randomUUID());
+    const capacity = Math.min(8, Math.max(2, Number(maxPlayers) || 4));
     const room = {
       code,
       gameType: gameType === "poker" ? "poker" : "41",
-      maxPlayers: Math.min(8, Math.max(2, Number(maxPlayers) || 4)),
+      opponentMode: opponentMode === "cpu" ? "cpu" : "online",
+      maxPlayers: capacity,
       hostKey: key,
       status: "waiting",
       players: [{ key, socketId: socket.id, name: cleanName(name), hand: [], connected: true }],
       spectators: new Set(), deck: [], discard: [], current: 0, phase: "draw", winners: [],
     };
+    if (room.opponentMode === "cpu") {
+      for (let index = 0; index < capacity - 1; index++) room.players.push({ key: `bot-${crypto.randomUUID()}`, socketId: null, name: botNames[index], hand: [], connected: true, bot: true });
+    }
     rooms.set(code, room);
     socket.join(code);
     socket.data.roomCode = code;
@@ -267,6 +308,7 @@ io.on("connection", (socket) => {
     if (!room || room.gameType !== "poker" || room.status !== "playing" || !player || player.folded || room.acted.has(player.key)) return;
     if (action === "fold") player.folded = true;
     room.acted.add(player.key);
+    playPokerBots(room);
     settlePoker(room);
   });
 
@@ -278,6 +320,12 @@ io.on("connection", (socket) => {
     if (index >= 0) {
       const [leaving] = room.players.splice(index, 1);
       if (leaving.key === room.hostKey) room.hostKey = room.players[0]?.key || null;
+      if (room.opponentMode === "cpu" && !room.players.some((player) => !player.bot)) {
+        socket.leave(room.code);
+        socket.data.roomCode = null;
+        rooms.delete(room.code);
+        return reply?.({ ok: true });
+      }
       if (room.status === "playing") {
         if (room.players.length < 2) room.gameType === "poker" ? finishPoker(room) : finish(room);
         else if (room.gameType === "poker") settlePoker(room);

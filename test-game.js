@@ -89,3 +89,20 @@ test("Texas Hold'em membagikan dua kartu dan membuka flop", async () => {
   guest.emit("poker-action", "check");
   assert.ok((await showdown).winners.length >= 1);
 });
+
+test("mode CPU mengisi kursi dan memainkan giliran otomatis", async () => {
+  const host = await client();
+  const created = await emit(host, "create-room", { name: "Solo", maxPlayers: 2, gameType: "41", opponentMode: "cpu" });
+  const playing = state(host, (value) => value.status === "playing");
+  host.emit("start-round");
+  const initial = await playing;
+  assert.equal(initial.players.length, 2);
+  assert.equal(initial.players.filter((player) => player.bot).length, 1);
+
+  const afterDraw = state(host, (value) => value.phase === "discard");
+  host.emit("draw-card", "deck");
+  await afterDraw;
+  const backToPlayer = state(host, (value) => value.phase === "draw" && value.currentName === "Solo");
+  host.emit("discard-card", 0);
+  assert.equal((await backToPlayer).currentName, "Solo");
+});

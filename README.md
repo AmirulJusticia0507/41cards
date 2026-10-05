@@ -57,6 +57,8 @@ Pemain dengan skor tertinggi menjadi pemenang. Jika skor seri, hasil ronde dinya
 
 - Multiplayer realtime untuk 2–8 pemain.
 - Pilihan permainan 41 Cards atau Texas Hold'em sederhana dari switch di pojok atas.
+- Klik tombol game di pojok atas untuk langsung membuka form masuk atau membuat room.
+- Mode lawan dapat dipilih antara multiplayer online atau CPU.
 - Room privat dengan kode undangan.
 - Nama pemain diisi dari perangkat masing-masing.
 - Mode penonton tanpa akses ke kartu rahasia.

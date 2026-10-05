@@ -11,6 +11,10 @@ body { margin: 0; font-family: "DM Sans", sans-serif; background: #06130f; }
 .player-count-control { display: flex; align-items: center; gap: .45rem; border: 1px solid #ffffff26; border-radius: 999px; background: #ffffff12; padding: 0 .7rem; font-size: .75rem; font-weight: 600; }
 .player-count-control select { cursor: pointer; border: 0; outline: 0; color: white; background: transparent; font-weight: 700; }
 .player-count-control option { color: #0f172a; }
+.game-switch { display: flex; border: 1px solid #ffffff20; border-radius: 999px; background: #ffffff0b; padding: .2rem; }
+.game-switch-button { border-radius: 999px; padding: .4rem .65rem; color: #ffffff70; font-size: .72rem; font-weight: 700; transition: .2s; }
+.game-switch-button.active { background: #fcd34d; color: #052e25; }
+.game-switch-button:disabled { cursor: not-allowed; opacity: .65; }
 .lobby-input { width: 100%; border: 1px solid #ffffff1c; border-radius: .8rem; background: #ffffff0c; padding: .8rem 1rem; color: white; outline: none; }
 .lobby-input:focus { border-color: #fcd34d77; }
 .primary-button, .secondary-button { border-radius: .8rem; padding: .8rem 1rem; font-weight: 700; transition: .2s; }
@@ -18,6 +22,9 @@ body { margin: 0; font-family: "DM Sans", sans-serif; background: #06130f; }
 .primary-button:hover { background: #fde68a; }
 .secondary-button { border: 1px solid #ffffff20; background: #ffffff10; }
 .secondary-button:hover { background: #ffffff20; }
+.create-room-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; }
+.capacity-control { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .75rem; border: 1px solid #ffffff1c; border-radius: .8rem; background: #ffffff0c; padding: .75rem 1rem; color: #ffffff99; font-size: .8rem; }
+.capacity-control select { min-width: 6.8rem; cursor: pointer; border: 0; outline: 0; color: white; background: #111827; font-weight: 700; }
 .table-texture { background-color: #064e3b; background-image: radial-gradient(#ffffff0c 1px, transparent 1px), radial-gradient(circle at 50% 45%, #10b98122, transparent 50%); background-size: 6px 6px, 100% 100%; }
 .playing-card { position: relative; display: block; width: 4.75rem; height: 6.75rem; flex: none; border-radius: .65rem; border: 1px solid #d7dce3; color: #17202a; background: linear-gradient(145deg, #fff, #e9edf1); box-shadow: 0 10px 18px #001a1266; user-select: none; }
 .playing-card.red { color: #dc2626; }
@@ -57,3 +64,4 @@ dialog[open] { animation: pop .2s ease-out; }
 @media (min-width: 640px) { .playing-card { width: 5.8rem; height: 8.2rem; } .hand-zone { height: 11.5rem; } .hand-card { bottom: 1rem; } }
 @media (max-width: 420px) { .opponent { width: 5.5rem; } .wrist-left { left: 2rem; } .wrist-right { right: 2rem; } }
 @media (max-width: 640px) { .opponent .avatar { width: 2.25rem; height: 2.25rem; font-size: 1rem; } .opponent .mini-hand { transform: scale(.78); margin-top: .35rem; } .opponent:nth-child(n+6) .mini-hand { visibility: hidden; } }
+@media (max-width: 420px) { .create-room-row { grid-template-columns: 1fr; } .create-room-row .primary-button { width: 100%; } .capacity-control select { min-width: 7.5rem; } }

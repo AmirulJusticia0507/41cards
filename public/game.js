@@ -8,6 +8,14 @@ const avatars = ["👩🏽", "👨🏻", "👩🏻", "🧑🏽", "👩🏾", "�
 let game = null;
 let lastStatus = null;
 let installPrompt = null;
+let selectedGame = "41";
+
+function selectGame(type, openLobby = false) {
+  selectedGame = type === "poker" ? "poker" : "41";
+  document.querySelectorAll(".game-switch-button").forEach((button) => button.classList.toggle("active", button.dataset.game === selectedGame));
+  $("#selected-game-label").textContent = selectedGame === "poker" ? "Texas Hold'em" : "41 Cards";
+  if (openLobby && !game && !$("#lobby-dialog").open) $("#lobby-dialog").showModal();
+}
 
 function cardMarkup(card, extraClass = "") {
   if (!card) return '<span id="discard-card" class="playing-card opacity-20"></span>';
@@ -32,7 +40,7 @@ function renderTable() {
   if (!game) return;
   const poker = game.gameType === "poker";
   const others = game.players.filter((player) => !player.you);
-  $("#opponents").innerHTML = others.map((player, index) => `<div class="opponent ${player.current || (poker && !player.acted && !player.folded) ? "active" : ""} ${player.connected && !player.folded ? "" : "opacity-40"}"><div class="avatar">${avatars[index % avatars.length]}</div><div class="mt-1 max-w-full truncate px-1 text-xs font-semibold">${escapeHtml(player.name)}</div><div class="text-[10px] text-white/45">${player.folded ? "fold" : player.connected ? `${player.cardCount} kartu` : "terputus"}</div><div class="mini-hand">${Array.from({ length: player.cardCount }, () => '<i class="mini-card"></i>').join("")}</div></div>`).join("");
+  $("#opponents").innerHTML = others.map((player, index) => `<div class="opponent ${player.current || (poker && !player.acted && !player.folded) ? "active" : ""} ${player.connected && !player.folded ? "" : "opacity-40"}"><div class="avatar">${player.bot ? "🤖" : avatars[index % avatars.length]}</div><div class="mt-1 max-w-full truncate px-1 text-xs font-semibold">${escapeHtml(player.name)}</div><div class="text-[10px] text-white/45">${player.folded ? "fold" : player.connected ? `${player.cardCount} kartu` : "terputus"}</div><div class="mini-hand">${Array.from({ length: player.cardCount }, () => '<i class="mini-card"></i>').join("")}</div></div>`).join("");
   renderHand();
   $("#forty-one-piles").classList.toggle("hidden", poker);
   $("#poker-board").classList.toggle("hidden", !poker);
@@ -62,9 +70,9 @@ function renderLobby() {
   $("#room-badge").textContent = game.code;
   $("#room-badge").classList.remove("hidden");
   $("#leave-header-button").classList.remove("hidden");
-  $("#game-switch").value = game.gameType;
-  $("#game-switch").disabled = true;
-  $("#lobby-players").innerHTML = game.players.map((player, index) => `<div class="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3"><span>${avatars[index % avatars.length]}</span><span class="flex-1 text-sm font-semibold">${escapeHtml(player.name)}${player.you ? " (kamu)" : ""}</span><span class="text-[10px] ${player.connected ? "text-emerald-300" : "text-red-300"}">${player.connected ? "ONLINE" : "PUTUS"}</span></div>`).join("");
+  selectGame(game.gameType);
+  document.querySelectorAll(".game-switch-button").forEach((button) => { button.disabled = true; });
+  $("#lobby-players").innerHTML = game.players.map((player, index) => `<div class="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3"><span>${player.bot ? "🤖" : avatars[index % avatars.length]}</span><span class="flex-1 text-sm font-semibold">${escapeHtml(player.name)}${player.you ? " (kamu)" : ""}</span><span class="text-[10px] ${player.connected ? "text-emerald-300" : "text-red-300"}">${player.bot ? "CPU" : player.connected ? "ONLINE" : "PUTUS"}</span></div>`).join("");
   $("#lobby-status").textContent = game.spectator ? "Kamu masuk sebagai penonton." : `${game.players.length}/${game.maxPlayers} pemain • minimal 2 pemain`;
   $("#start-button").classList.toggle("hidden", !game.host || game.players.length < 2 || game.status === "playing");
 }
@@ -91,7 +99,7 @@ function resetLobby() {
   localStorage.removeItem("41cards:session");
   $("#waiting-panel").classList.add("hidden");
   $("#join-panel").classList.remove("hidden");
-  $("#game-switch").disabled = false;
+  document.querySelectorAll(".game-switch-button").forEach((button) => { button.disabled = false; });
   $("#room-badge").classList.add("hidden");
   $("#leave-header-button").classList.add("hidden");
   $("#lobby-error").classList.add("hidden");
@@ -136,7 +144,7 @@ socket.on("connect", () => {
 $("#create-button").addEventListener("click", () => {
   const name = $("#player-name").value.trim();
   if (!name) return showError("Isi nama kamu terlebih dahulu.");
-  socket.emit("create-room", { name, maxPlayers: Number($("#max-players").value), gameType: $("#game-switch").value }, (response) => {
+  socket.emit("create-room", { name, maxPlayers: Number($("#max-players").value), gameType: selectedGame, opponentMode: $("#opponent-mode").value }, (response) => {
     if (!response.ok) return showError(response.error);
     localStorage.setItem(identityKey(response.code), response.playerKey);
     saveSession({ code: response.code, name, spectator: false, playerKey: response.playerKey });
@@ -160,6 +168,7 @@ $("#lobby-button").addEventListener("click", () => $("#lobby-dialog").showModal(
 $("#close-lobby").addEventListener("click", () => $("#lobby-dialog").close());
 $("#room-badge").addEventListener("click", () => navigator.clipboard?.writeText(game.code));
 $("#lobby-room-code").addEventListener("click", () => navigator.clipboard?.writeText(game.code));
+document.querySelectorAll(".game-switch-button").forEach((button) => button.addEventListener("click", () => selectGame(button.dataset.game, true)));
 window.addEventListener("resize", () => game && renderHand());
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
