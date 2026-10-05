@@ -97,7 +97,7 @@ Buka `http://localhost:5500`. Untuk mencoba dari HP pada Wi-Fi yang sama, buka a
 
 Penonton memasukkan kode room lalu memilih **Masuk sebagai penonton**. Mereka dapat memantau meja dan giliran, tetapi tidak dapat melihat kartu rahasia atau melakukan aksi permainan.
 
-Pemain dan penonton dapat membuka menu **Room** lalu memilih **Keluar Room**. Jika host keluar, status host otomatis diberikan kepada pemain berikutnya.
+Pemain dan penonton dapat menekan **Keluar** di kanan atas atau membuka menu **Room** lalu memilih **Keluar ke Halaman Awal**. Sesi dibersihkan dan pengguna kembali ke layar untuk membuat atau bergabung ke room. Jika host keluar, status host otomatis diberikan kepada pemain berikutnya.
 
 ## Deploy online
 

@@ -51,6 +51,7 @@ function renderLobby() {
   $("#lobby-room-code").textContent = game.code;
   $("#room-badge").textContent = game.code;
   $("#room-badge").classList.remove("hidden");
+  $("#leave-header-button").classList.remove("hidden");
   $("#lobby-players").innerHTML = game.players.map((player, index) => `<div class="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3"><span>${avatars[index % avatars.length]}</span><span class="flex-1 text-sm font-semibold">${escapeHtml(player.name)}${player.you ? " (kamu)" : ""}</span><span class="text-[10px] ${player.connected ? "text-emerald-300" : "text-red-300"}">${player.connected ? "ONLINE" : "PUTUS"}</span></div>`).join("");
   $("#lobby-status").textContent = game.spectator ? "Kamu masuk sebagai penonton." : `${game.players.length}/${game.maxPlayers} pemain • minimal 2 pemain`;
   $("#start-button").classList.toggle("hidden", !game.host || game.players.length < 2 || game.status === "playing");
@@ -72,6 +73,7 @@ function identityKey(code) { return `41cards:${code}:playerKey`; }
 function saveSession(data) { localStorage.setItem("41cards:session", JSON.stringify(data)); }
 function loadSession() { try { return JSON.parse(localStorage.getItem("41cards:session")); } catch { return null; } }
 function resetLobby() {
+  if (game?.code) localStorage.removeItem(identityKey(game.code));
   game = null;
   lastStatus = null;
   localStorage.removeItem("41cards:session");
@@ -79,8 +81,18 @@ function resetLobby() {
   $("#join-panel").classList.remove("hidden");
   $("#close-lobby").classList.add("hidden");
   $("#room-badge").classList.add("hidden");
+  $("#leave-header-button").classList.add("hidden");
   $("#lobby-error").classList.add("hidden");
   if (!$("#lobby-dialog").open) $("#lobby-dialog").showModal();
+}
+function leaveRoom() {
+  const button = $("#leave-button");
+  button.disabled = true;
+  button.textContent = "Keluar…";
+  socket.timeout(3000).emit("leave-room", () => {
+    resetLobby();
+    window.location.replace("/");
+  });
 }
 function joinRoom(spectator = false) {
   const code = $("#room-code").value.trim().toUpperCase();
@@ -121,7 +133,8 @@ $("#create-button").addEventListener("click", () => {
 $("#join-button").addEventListener("click", () => joinRoom(false));
 $("#watch-button").addEventListener("click", () => joinRoom(true));
 $("#start-button").addEventListener("click", () => socket.emit("start-round"));
-$("#leave-button").addEventListener("click", () => socket.emit("leave-room", () => resetLobby()));
+$("#leave-button").addEventListener("click", leaveRoom);
+$("#leave-header-button").addEventListener("click", leaveRoom);
 $("#deck").addEventListener("click", () => socket.emit("draw-card", "deck"));
 $("#discard-pile").addEventListener("click", () => socket.emit("draw-card", "discard"));
 $("#replay-button").addEventListener("click", () => { $("#result-dialog").close(); socket.emit("start-round"); });
