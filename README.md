@@ -73,9 +73,22 @@ Belum termasuk multiplayer daring, akun, taruhan, chat, peringkat, atau penyimpa
 - Kartu lawan tetap tertutup selama ronde berlangsung.
 - Logika pengacakan, giliran, skor, dan kemenangan harus dapat diuji secara terpisah.
 
-## Status
+## Menjalankan permainan
 
-🚧 Belum diimplementasikan.
+Buka `index.html` langsung di browser atau jalankan melalui web server lokal:
+
+```text
+http://localhost/41cards/
+```
+
+Tidak ada proses build atau instalasi dependensi. Tailwind CSS dan font dimuat melalui CDN.
+
+## Cara bermain versi web
+
+1. Klik tumpukan **Ambil** atau **Buangan**.
+2. Setelah tangan berisi lima kartu, klik satu kartu untuk membuangnya.
+3. Tiga bot akan menjalankan giliran secara otomatis.
+4. Ronde selesai saat ada pemain mencapai 41 atau tumpukan kartu habis.
 
 ## Referensi aturan
 
