@@ -10,7 +10,14 @@ const io = new Server(server, { path: "/socket.io" });
 const rooms = new Map();
 const suits = ["spades", "hearts", "diamonds", "clubs"];
 const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-const botNames = ["Rani CPU", "Bima CPU", "Sari CPU", "Dika CPU", "Maya CPU", "Raka CPU", "Nina CPU"];
+
+function randomBotName(existingNames = new Set()) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let name;
+  do name = `CPU-${Array.from({ length: 4 }, () => chars[crypto.randomInt(chars.length)]).join("")}`;
+  while (existingNames.has(name));
+  return name;
+}
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -239,7 +246,12 @@ io.on("connection", (socket) => {
       spectators: new Set(), deck: [], discard: [], current: 0, phase: "draw", winners: [],
     };
     if (room.opponentMode === "cpu") {
-      for (let index = 0; index < capacity - 1; index++) room.players.push({ key: `bot-${crypto.randomUUID()}`, socketId: null, name: botNames[index], hand: [], connected: true, bot: true });
+      const names = new Set(room.players.map((player) => player.name));
+      for (let index = 0; index < capacity - 1; index++) {
+        const botName = randomBotName(names);
+        names.add(botName);
+        room.players.push({ key: `bot-${crypto.randomUUID()}`, socketId: null, name: botName, hand: [], connected: true, bot: true });
+      }
     }
     rooms.set(code, room);
     socket.join(code);

@@ -59,6 +59,7 @@ Pemain dengan skor tertinggi menjadi pemenang. Jika skor seri, hasil ronde dinya
 - Pilihan permainan 41 Cards atau Texas Hold'em sederhana dari switch di pojok atas.
 - Klik tombol game di pojok atas untuk langsung membuka form masuk atau membuat room.
 - Mode lawan dapat dipilih antara multiplayer online atau CPU.
+- Nama CPU dibuat acak oleh server untuk setiap room.
 - Room privat dengan kode undangan.
 - Nama pemain diisi dari perangkat masing-masing.
 - Mode penonton tanpa akses ke kartu rahasia.

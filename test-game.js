@@ -98,6 +98,7 @@ test("mode CPU mengisi kursi dan memainkan giliran otomatis", async () => {
   const initial = await playing;
   assert.equal(initial.players.length, 2);
   assert.equal(initial.players.filter((player) => player.bot).length, 1);
+  assert.match(initial.players.find((player) => player.bot).name, /^CPU-[A-Z2-9]{4}$/);
 
   const afterDraw = state(host, (value) => value.phase === "discard");
   host.emit("draw-card", "deck");
