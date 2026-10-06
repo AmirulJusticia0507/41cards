@@ -1,4 +1,4 @@
-const CACHE = "41cards-v1";
+const CACHE = "41cards-v2";
 const APP_SHELL = ["/", "/style.css", "/game.js", "/favicon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

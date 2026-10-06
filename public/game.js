@@ -9,6 +9,7 @@ let game = null;
 let lastStatus = null;
 let installPrompt = null;
 let selectedGame = "41";
+let leavingRoom = false;
 
 function selectGame(type, openLobby = false) {
   selectedGame = type === "poker" ? "poker" : "41";
@@ -114,13 +115,11 @@ function resetLobby() {
   if (!$("#lobby-dialog").open) $("#lobby-dialog").showModal();
 }
 function leaveRoom() {
-  const button = $("#leave-button");
-  button.disabled = true;
-  button.textContent = "Keluar…";
-  socket.timeout(3000).emit("leave-room", () => {
-    resetLobby();
-    window.location.replace("/");
-  });
+  if (leavingRoom) return;
+  leavingRoom = true;
+  resetLobby();
+  socket.timeout(1500).emit("leave-room", () => window.location.replace("/"));
+  window.setTimeout(() => window.location.replace("/"), 1600);
 }
 function joinRoom(spectator = false) {
   const code = $("#room-code").value.trim().toUpperCase();
@@ -135,6 +134,7 @@ function joinRoom(spectator = false) {
 }
 
 socket.on("state", (state) => {
+  if (leavingRoom) return;
   game = state;
   renderTable();
   renderLobby();

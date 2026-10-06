@@ -106,7 +106,13 @@
         <button id="close-lobby" class="icon-button" aria-label="Tutup lobi">×</button>
       </div>
       <div id="join-panel" class="mt-6 space-y-3">
-        <div class="rounded-xl border border-amber-300/15 bg-amber-300/5 px-4 py-3 text-sm text-amber-100">Game: <strong id="selected-game-label">41 Cards</strong></div>
+        <div class="flex items-center justify-between rounded-xl border border-amber-300/15 bg-amber-300/5 px-4 py-3 text-sm text-amber-100">
+          <span>Game: <strong id="selected-game-label">41 Cards</strong></span>
+          <div class="game-switch" aria-label="Pilih permainan di lobi">
+            <button class="game-switch-button active" data-game="41">41</button>
+            <button class="game-switch-button" data-game="poker">Poker</button>
+          </div>
+        </div>
         <input id="player-name" class="lobby-input" maxlength="18" placeholder="Nama kamu" autocomplete="name">
         <div class="grid grid-cols-[1fr_auto] gap-3">
           <input id="room-code" class="lobby-input uppercase tracking-[.25em]" maxlength="5" placeholder="KODE ROOM">
