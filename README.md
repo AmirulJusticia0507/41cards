@@ -102,6 +102,8 @@ Buka `http://localhost:5500`. Untuk mencoba dari HP pada Wi-Fi yang sama, buka a
 
 Untuk Texas Hold'em, setiap pemain mulai dengan 1.000 chip dan menerima dua kartu pribadi. Small blind bernilai 10 dan big blind 20. Pemain dapat check/call, raise 20, fold, atau all-in. Kartu komunitas dibuka sebagai flop, turn, dan river; pemenang kombinasi lima kartu terbaik menerima pot.
 
+Tombol aksi poker selalu tampil di bawah kartu komunitas. Tombol aktif ketika pemain perlu mengambil keputusan dan menjadi redup saat menunggu pemain lain. Giliran CPU 41 diproses dengan jeda sekitar 250 ms.
+
 Ranking poker dari tertinggi: Royal Flush, Straight Flush, Four of a Kind, Full House, Flush, Straight, Three of a Kind, Two Pair, One Pair, dan High Card.
 
 Penonton memasukkan kode room lalu memilih **Masuk sebagai penonton**. Mereka dapat memantau meja dan giliran, tetapi tidak dapat melihat kartu rahasia atau melakukan aksi permainan.

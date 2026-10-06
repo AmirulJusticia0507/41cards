@@ -13,6 +13,7 @@ const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
 const STARTING_CHIPS = 1000;
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
+const BOT_DELAY_MS = 250;
 
 function randomBotName(existingNames = new Set()) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -240,7 +241,7 @@ function nextTurn(room) {
   if (attempts > room.players.length) return finish(room);
   room.phase = "draw";
   broadcast(room);
-  if (room.players[room.current].bot) setTimeout(() => playBot41(room), 500);
+  if (room.players[room.current].bot) setTimeout(() => playBot41(room), BOT_DELAY_MS);
 }
 
 function bestDiscard(hand) {
