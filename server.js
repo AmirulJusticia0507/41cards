@@ -10,6 +10,9 @@ const io = new Server(server, { path: "/socket.io" });
 const rooms = new Map();
 const suits = ["spades", "hearts", "diamonds", "clubs"];
 const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const STARTING_CHIPS = 1000;
+const SMALL_BLIND = 10;
+const BIG_BLIND = 20;
 
 function randomBotName(existingNames = new Set()) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -87,6 +90,12 @@ function comparePoker(a, b) {
   return 0;
 }
 
+function pokerHandName(hand) {
+  if (!hand) return "Menang karena semua lawan fold";
+  if (hand[0] === 8 && hand[1] === 14) return "Royal Flush";
+  return ["High Card", "One Pair", "Two Pair", "Three of a Kind", "Straight", "Flush", "Full House", "Four of a Kind", "Straight Flush"][hand[0]];
+}
+
 function publicState(room, socket) {
   const me = room.players.find((player) => player.socketId === socket.id);
   const spectator = !me;
@@ -104,6 +113,9 @@ function publicState(room, socket) {
       cardCount: player.hand.length,
       connected: player.connected,
       bot: player.bot || false,
+      chips: player.chips || 0,
+      bet: player.bet || 0,
+      allIn: player.allIn || false,
       folded: player.folded || false,
       acted: room.acted?.has(player.key) || false,
       current: index === room.current,
@@ -118,8 +130,12 @@ function publicState(room, socket) {
       : (me && room.current === room.players.indexOf(me) ? room.phase : "waiting"),
     currentName: room.gameType === "poker" ? "semua pemain" : (room.players[room.current]?.name || "-"),
     winners: room.winners || [],
+    winningHand: room.winningHand || null,
     community: (room.community || []).slice(0, room.revealed || 0),
     pokerStage: room.pokerStage,
+    pot: room.pot || 0,
+    currentBet: room.currentBet || 0,
+    toCall: me ? Math.max(0, (room.currentBet || 0) - (me.bet || 0)) : 0,
   };
 }
 
@@ -137,12 +153,23 @@ function finish(room) {
 function finishPoker(room) {
   room.status = "finished";
   const active = room.players.filter((player) => !player.folded);
-  if (active.length <= 1) room.winners = active.map((player) => player.name);
+  if (active.length <= 1) {
+    room.winners = active.map((player) => player.name);
+    room.winningHand = pokerHandName(null);
+  }
   else {
     const ranked = active.map((player) => ({ player, hand: pokerHand([...player.hand, ...room.community]) }));
     const best = ranked.reduce((winner, item) => comparePoker(item.hand, winner.hand) > 0 ? item : winner);
     room.winners = ranked.filter((item) => comparePoker(item.hand, best.hand) === 0).map((item) => item.player.name);
+    room.winningHand = pokerHandName(best.hand);
   }
+  const winners = room.players.filter((player) => room.winners.includes(player.name));
+  if (winners.length) {
+    const share = Math.floor(room.pot / winners.length);
+    winners.forEach((winner) => { winner.chips += share; });
+    winners[0].chips += room.pot - share * winners.length;
+  }
+  room.pot = 0;
   room.revealed = 5;
   broadcast(room);
 }
@@ -150,8 +177,11 @@ function finishPoker(room) {
 function settlePoker(room) {
   const active = room.players.filter((player) => !player.folded && player.connected);
   if (active.length <= 1) return finishPoker(room);
-  if (active.every((player) => room.acted.has(player.key))) {
+  const settled = active.every((player) => player.allIn || (room.acted.has(player.key) && player.bet === room.currentBet));
+  if (settled) {
     room.acted.clear();
+    room.players.forEach((player) => { player.bet = 0; });
+    room.currentBet = 0;
     if (room.revealed === 0) { room.revealed = 3; room.pokerStage = "Flop"; }
     else if (room.revealed === 3) { room.revealed = 4; room.pokerStage = "Turn"; }
     else if (room.revealed === 4) { room.revealed = 5; room.pokerStage = "River"; }
@@ -167,13 +197,29 @@ function startRound(room) {
   room.current = 0;
   room.phase = "draw";
   room.winners = [];
-  room.players.forEach((player) => { player.hand = []; player.folded = false; });
+  room.players.forEach((player) => { player.hand = []; player.folded = false; player.bet = 0; player.allIn = false; });
   if (room.gameType === "poker") {
+    if (room.players.filter((player) => player.chips > 0).length < 2) room.players.forEach((player) => { player.chips = STARTING_CHIPS; });
+    room.players.forEach((player) => { player.folded = player.chips <= 0; });
     for (let round = 0; round < 2; round++) room.players.forEach((player) => player.hand.push(room.deck.pop()));
     room.community = Array.from({ length: 5 }, () => room.deck.pop());
     room.revealed = 0;
     room.pokerStage = "Pre-flop";
+    room.winningHand = null;
     room.acted = new Set();
+    room.pot = 0;
+    room.currentBet = 0;
+    room.dealer = ((room.dealer ?? -1) + 1) % room.players.length;
+    const eligible = room.players.map((player, index) => ({ player, index })).filter(({ player }) => !player.folded);
+    const afterDealer = [...eligible.filter(({ index }) => index > room.dealer), ...eligible.filter(({ index }) => index <= room.dealer)];
+    const postBlind = (player, amount) => {
+      const paid = Math.min(player.chips, amount);
+      player.chips -= paid; player.bet += paid; room.pot += paid;
+      if (!player.chips) player.allIn = true;
+      room.currentBet = Math.max(room.currentBet, player.bet);
+    };
+    postBlind(afterDealer[0].player, SMALL_BLIND);
+    postBlind(afterDealer[1 % afterDealer.length].player, BIG_BLIND);
     room.phase = "poker-action";
   } else {
     for (let round = 0; round < 4; round++) room.players.forEach((player) => player.hand.push(room.deck.pop()));
@@ -224,8 +270,16 @@ function playBot41(room) {
 
 function playPokerBots(room) {
   room.players.filter((player) => player.bot && !player.folded && !room.acted.has(player.key)).forEach((bot) => {
+    const due = Math.max(0, room.currentBet - bot.bet);
     const foldChance = room.revealed === 0 ? 18 : 10;
-    if (crypto.randomInt(100) < foldChance && room.players.filter((player) => !player.folded).length > 2) bot.folded = true;
+    if (due > 0 && crypto.randomInt(100) < foldChance && room.players.filter((player) => !player.folded).length > 2) bot.folded = true;
+    else {
+      const payment = Math.min(bot.chips, due);
+      bot.chips -= payment;
+      bot.bet += payment;
+      room.pot += payment;
+      if (!bot.chips) bot.allIn = true;
+    }
     room.acted.add(bot.key);
   });
 }
@@ -242,7 +296,7 @@ io.on("connection", (socket) => {
       maxPlayers: capacity,
       hostKey: key,
       status: "waiting",
-      players: [{ key, socketId: socket.id, name: cleanName(name), hand: [], connected: true }],
+      players: [{ key, socketId: socket.id, name: cleanName(name), hand: [], connected: true, chips: STARTING_CHIPS }],
       spectators: new Set(), deck: [], discard: [], current: 0, phase: "draw", winners: [],
     };
     if (room.opponentMode === "cpu") {
@@ -250,7 +304,7 @@ io.on("connection", (socket) => {
       for (let index = 0; index < capacity - 1; index++) {
         const botName = randomBotName(names);
         names.add(botName);
-        room.players.push({ key: `bot-${crypto.randomUUID()}`, socketId: null, name: botName, hand: [], connected: true, bot: true });
+        room.players.push({ key: `bot-${crypto.randomUUID()}`, socketId: null, name: botName, hand: [], connected: true, bot: true, chips: STARTING_CHIPS });
       }
     }
     rooms.set(code, room);
@@ -276,7 +330,7 @@ io.on("connection", (socket) => {
         if (room.status !== "waiting") return reply?.({ ok: false, error: "Permainan sudah dimulai. Masuk sebagai penonton." });
         if (room.players.length >= room.maxPlayers) return reply?.({ ok: false, error: "Room sudah penuh." });
         playerKey = String(playerKey || crypto.randomUUID());
-        room.players.push({ key: playerKey, socketId: socket.id, name: cleanName(name), hand: [], connected: true });
+        room.players.push({ key: playerKey, socketId: socket.id, name: cleanName(name), hand: [], connected: true, chips: STARTING_CHIPS });
       }
     }
     socket.join(code);
@@ -318,7 +372,23 @@ io.on("connection", (socket) => {
     const room = rooms.get(socket.data.roomCode);
     const player = room?.players.find((item) => item.socketId === socket.id);
     if (!room || room.gameType !== "poker" || room.status !== "playing" || !player || player.folded || room.acted.has(player.key)) return;
-    if (action === "fold") player.folded = true;
+    const type = typeof action === "string" ? action : action?.type;
+    if (type === "fold") player.folded = true;
+    else {
+      const due = Math.max(0, room.currentBet - player.bet);
+      let payment = due;
+      if (type === "raise") payment += Math.min(20, Math.max(0, player.chips - due));
+      if (type === "all-in") payment = player.chips;
+      payment = Math.min(player.chips, payment);
+      player.chips -= payment;
+      player.bet += payment;
+      room.pot += payment;
+      if (!player.chips) player.allIn = true;
+      if (player.bet > room.currentBet) {
+        room.currentBet = player.bet;
+        room.acted.clear();
+      }
+    }
     room.acted.add(player.key);
     playPokerBots(room);
     settlePoker(room);

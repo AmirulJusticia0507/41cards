@@ -70,6 +70,7 @@ test("Texas Hold'em membagikan dua kartu dan membuka flop", async () => {
   assert.equal(hostState.gameType, "poker");
   assert.equal(hostState.me.hand.length, 2);
   assert.equal(hostState.community.length, 0);
+  assert.equal(hostState.pot, 30);
   assert.equal(hostState.players.find((player) => !player.you).hand, undefined);
 
   host.emit("poker-action", "check");
@@ -87,7 +88,10 @@ test("Texas Hold'em membagikan dua kartu dan membuka flop", async () => {
   host.emit("poker-action", "check");
   const showdown = state(guest, (value) => value.status === "finished");
   guest.emit("poker-action", "check");
-  assert.ok((await showdown).winners.length >= 1);
+  const finalState = await showdown;
+  assert.ok(finalState.winners.length >= 1);
+  assert.ok(["Royal Flush", "Straight Flush", "Four of a Kind", "Full House", "Flush", "Straight", "Three of a Kind", "Two Pair", "One Pair", "High Card"].includes(finalState.winningHand));
+  assert.equal(finalState.players.reduce((total, player) => total + player.chips, 0), 2000);
 });
 
 test("mode CPU mengisi kursi dan memainkan giliran otomatis", async () => {

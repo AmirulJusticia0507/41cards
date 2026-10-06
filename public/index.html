@@ -64,10 +64,16 @@
       </div>
 
       <div id="poker-board" class="absolute left-1/2 top-[42%] z-10 hidden w-full -translate-x-1/2 -translate-y-1/2 text-center">
+        <div class="mb-3 flex justify-center gap-2 text-xs font-bold">
+          <span id="pot-label" class="rounded-full bg-amber-300 px-3 py-1 text-emerald-950">Pot 0</span>
+          <span id="bet-label" class="rounded-full bg-black/25 px-3 py-1 text-white/70">Taruhan 0</span>
+        </div>
         <div id="community-cards" class="flex justify-center gap-1.5 sm:gap-3"></div>
-        <div id="poker-actions" class="mt-7 flex justify-center gap-3">
+        <div id="poker-actions" class="mt-7 flex flex-wrap justify-center gap-2">
           <button id="fold-button" class="rounded-xl border border-red-300/20 bg-red-400/10 px-5 py-3 text-sm font-bold text-red-200">Fold</button>
-          <button id="check-button" class="rounded-xl bg-amber-300 px-6 py-3 text-sm font-bold text-emerald-950">Lanjut</button>
+          <button id="check-button" class="rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-emerald-950">Check</button>
+          <button id="raise-button" class="rounded-xl border border-amber-300/25 bg-amber-300/10 px-5 py-3 text-sm font-bold text-amber-200">Raise +20</button>
+          <button id="allin-button" class="rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white">All-in</button>
         </div>
       </div>
 
@@ -146,6 +152,16 @@
         <li class="rule-item"><b>3</b><span><strong>Buang satu kartu.</strong> Setelah memegang lima kartu, klik kartu yang tidak kamu perlukan.</span></li>
         <li class="rule-item"><b>4</b><span><strong>Dapatkan 41.</strong> As bernilai 11, kartu wajah 10, dan kartu angka sesuai nilainya. A + K + Q + J dalam satu kembang = 41.</span></li>
       </ol>
+      <details class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+        <summary class="cursor-pointer font-bold text-white">Ranking kartu Texas Hold'em</summary>
+        <ol class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:text-sm">
+          <li>1. Royal Flush</li><li>6. Straight</li>
+          <li>2. Straight Flush</li><li>7. Three of a Kind</li>
+          <li>3. Four of a Kind</li><li>8. Two Pair</li>
+          <li>4. Full House</li><li>9. One Pair</li>
+          <li>5. Flush</li><li>10. High Card</li>
+        </ol>
+      </details>
       <button id="play-button" class="mt-8 w-full rounded-xl bg-amber-300 px-5 py-3 font-bold text-emerald-950 transition hover:bg-amber-200">Mulai Bermain</button>
     </div>
   </dialog>

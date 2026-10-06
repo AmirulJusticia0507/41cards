@@ -100,7 +100,9 @@ Buka `http://localhost:5500`. Untuk mencoba dari HP pada Wi-Fi yang sama, buka a
 5. Setelah tangan berisi lima kartu, klik satu kartu untuk membuangnya.
 6. Ronde selesai saat ada pemain mencapai 41 atau tumpukan kartu habis.
 
-Untuk Texas Hold'em, setiap pemain menerima dua kartu pribadi. Pilih **Lanjut** atau **Fold** pada setiap tahap; kartu komunitas dibuka sebagai flop, turn, dan river. Setelah river, server menentukan kombinasi lima kartu terbaik. Versi awal ini belum memakai chip atau taruhan.
+Untuk Texas Hold'em, setiap pemain mulai dengan 1.000 chip dan menerima dua kartu pribadi. Small blind bernilai 10 dan big blind 20. Pemain dapat check/call, raise 20, fold, atau all-in. Kartu komunitas dibuka sebagai flop, turn, dan river; pemenang kombinasi lima kartu terbaik menerima pot.
+
+Ranking poker dari tertinggi: Royal Flush, Straight Flush, Four of a Kind, Full House, Flush, Straight, Three of a Kind, Two Pair, One Pair, dan High Card.
 
 Penonton memasukkan kode room lalu memilih **Masuk sebagai penonton**. Mereka dapat memantau meja dan giliran, tetapi tidak dapat melihat kartu rahasia atau melakukan aksi permainan.
 
