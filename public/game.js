@@ -29,7 +29,7 @@ function renderHand() {
   handEl.innerHTML = hand.map((card, index) => {
     const offset = index - (hand.length - 1) / 2;
     const x = offset * (window.innerWidth < 640 ? 49 : 67);
-    return `<button class="hand-card ${game.phase !== "discard" ? "disabled" : ""}" data-card-index="${index}" style="z-index:${index + 10};transform:translateX(${x}px) translateY(${Math.abs(offset) * 4}px) rotate(${offset * 7}deg)">${cardMarkup(card)}</button>`;
+    return `<button class="hand-card ${game.phase !== "discard" ? "disabled" : ""}" data-card-index="${index}" style="z-index:${index + 10};transform:translateX(calc(-50% + ${x}px)) translateY(${Math.abs(offset) * 4}px) rotate(${offset * 7}deg)">${cardMarkup(card)}</button>`;
   }).join("");
   handEl.querySelectorAll(".hand-card").forEach((button) => button.addEventListener("click", () => {
     if (game.phase === "discard") socket.emit("discard-card", Number(button.dataset.cardIndex));
@@ -44,6 +44,7 @@ function renderTable() {
   renderHand();
   $("#forty-one-piles").classList.toggle("hidden", poker);
   $("#poker-board").classList.toggle("hidden", !poker);
+  $("#message").style.top = poker ? "66%" : "";
   if (poker) {
     $("#community-cards").innerHTML = Array.from({ length: 5 }, (_, index) => game.community[index] ? cardMarkup(game.community[index], "poker-card") : '<span class="playing-card poker-card card-back opacity-40"></span>').join("");
     const canAct = game.phase === "poker-action";
