@@ -106,6 +106,8 @@ Tombol aksi poker selalu tampil di bawah kartu komunitas. Tombol aktif ketika pe
 
 Pada layar ponsel dan mode PWA, kartu tangan dipusatkan secara eksplisit, kartu komunitas mengecil mengikuti lebar layar, dan tombol poker tersusun dalam grid dua kolom.
 
+Petunjuk aksi poker berada bersama tombol kontrol agar tidak menutupi label dan kartu pemain pada layar pendek.
+
 Ranking poker dari tertinggi: Royal Flush, Straight Flush, Four of a Kind, Full House, Flush, Straight, Three of a Kind, Two Pair, One Pair, dan High Card.
 
 Penonton memasukkan kode room lalu memilih **Masuk sebagai penonton**. Mereka dapat memantau meja dan giliran, tetapi tidak dapat melihat kartu rahasia atau melakukan aksi permainan.

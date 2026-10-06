@@ -44,14 +44,14 @@ function renderTable() {
   renderHand();
   $("#forty-one-piles").classList.toggle("hidden", poker);
   $("#poker-board").classList.toggle("hidden", !poker);
-  $("#message").style.top = poker ? "66%" : "";
+  $("#message").classList.toggle("hidden", poker);
   if (poker) {
     $("#community-cards").innerHTML = Array.from({ length: 5 }, (_, index) => game.community[index] ? cardMarkup(game.community[index], "poker-card") : '<span class="playing-card poker-card card-back opacity-40"></span>').join("");
     const canAct = game.phase === "poker-action";
     $("#poker-actions").classList.toggle("opacity-40", !canAct);
     $("#poker-actions").classList.toggle("pointer-events-none", !canAct);
     ["#fold-button", "#check-button", "#raise-button", "#allin-button"].forEach((selector) => { $(selector).disabled = !canAct; });
-    $("#poker-action-hint").textContent = canAct ? "Aksi kamu" : game.spectator ? "Mode penonton" : "Menunggu pemain lain";
+    $("#poker-action-hint").textContent = canAct ? "Pilih Check/Call, Raise, Fold, atau All-in" : game.spectator ? "Mode penonton" : "Menunggu pemain lain";
     $("#pot-label").textContent = `Pot ${formatChips(game.pot)}`;
     $("#bet-label").textContent = `Taruhan ${formatChips(game.currentBet)}`;
     $("#check-button").textContent = game.toCall ? `Call ${formatChips(game.toCall)}` : "Check";
