@@ -143,6 +143,11 @@ socket.on("state", (state) => {
   lastStatus = state.status;
 });
 socket.on("notice", showError);
+socket.on("room-expired", () => {
+  localStorage.removeItem("41cards:session");
+  resetLobby();
+  showError("Room sudah berakhir atau kedaluwarsa. Silakan buat atau gabung ke room lain.");
+});
 socket.on("disconnect", () => { if (game) $("#message").textContent = "Koneksi terputus. Mencoba menyambung kembali…"; });
 socket.on("connect", () => {
   const session = loadSession();
@@ -199,4 +204,5 @@ $("#install-button").addEventListener("click", async () => {
 
 $("#lobby-dialog").showModal();
 socket.connect();
+window.setInterval(() => { if (game && socket.connected) socket.emit("sync-room"); }, 1500);
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));

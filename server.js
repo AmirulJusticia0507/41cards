@@ -1,5 +1,6 @@
 const path = require("path");
 const crypto = require("crypto");
+const { Pool } = require("pg");
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -8,6 +9,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { path: "/socket.io" });
 const rooms = new Map();
+const database = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, max: 2, idleTimeoutMillis: 10000 }) : null;
+const ROOM_TTL_SECONDS = 7200;
+let databaseReady;
 const suits = ["spades", "hearts", "diamonds", "clubs"];
 const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 const STARTING_CHIPS = 1000;
@@ -21,6 +25,56 @@ function randomBotName(existingNames = new Set()) {
   do name = `CPU-${Array.from({ length: 4 }, () => chars[crypto.randomInt(chars.length)]).join("")}`;
   while (existingNames.has(name));
   return name;
+}
+
+function storedRoom(room) {
+  return { ...room, spectators: [...room.spectators], acted: room.acted ? [...room.acted] : null };
+}
+
+function restoredRoom(data) {
+  return data && { ...data, spectators: new Set(data.spectators || []), acted: data.acted ? new Set(data.acted) : undefined };
+}
+
+async function saveRoom(room) {
+  rooms.set(room.code, room);
+  if (!database) return;
+  await ensureDatabase();
+  await database.query(
+    `INSERT INTO game_rooms (code, state, expires_at) VALUES ($1, $2, NOW() + ($3 * INTERVAL '1 second'))
+     ON CONFLICT (code) DO UPDATE SET state = EXCLUDED.state, expires_at = EXCLUDED.expires_at`,
+    [room.code, storedRoom(room), ROOM_TTL_SECONDS],
+  );
+}
+
+async function loadRoom(code, fresh = false) {
+  if (!fresh && rooms.has(code)) return rooms.get(code);
+  if (!database) return rooms.get(code);
+  await ensureDatabase();
+  const result = await database.query("SELECT state FROM game_rooms WHERE code = $1 AND expires_at > NOW()", [code]);
+  const room = restoredRoom(result.rows[0]?.state);
+  if (room) rooms.set(code, room);
+  return room;
+}
+
+async function deleteRoom(code) {
+  rooms.delete(code);
+  if (database) {
+    await ensureDatabase();
+    await database.query("DELETE FROM game_rooms WHERE code = $1", [code]);
+  }
+}
+
+function ensureDatabase() {
+  if (!database) return Promise.resolve();
+  databaseReady ||= database.query(`
+    CREATE TABLE IF NOT EXISTS game_rooms (
+      code VARCHAR(5) PRIMARY KEY,
+      state JSONB NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS game_rooms_expires_at_idx ON game_rooms (expires_at);
+  `);
+  return databaseReady;
 }
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -141,6 +195,7 @@ function publicState(room, socket) {
 }
 
 function broadcast(room) {
+  saveRoom(room).catch((error) => console.error("Gagal menyimpan room:", error.message));
   io.to(room.code).fetchSockets().then((sockets) => sockets.forEach((socket) => socket.emit("state", publicState(room, socket))));
 }
 
@@ -308,16 +363,17 @@ io.on("connection", (socket) => {
         room.players.push({ key: `bot-${crypto.randomUUID()}`, socketId: null, name: botName, hand: [], connected: true, bot: true, chips: STARTING_CHIPS });
       }
     }
-    rooms.set(code, room);
+    saveRoom(room).catch((error) => console.error("Gagal menyimpan room:", error.message));
     socket.join(code);
     socket.data.roomCode = code;
+    socket.data.playerKey = key;
     reply?.({ ok: true, code, playerKey: key });
     broadcast(room);
   });
 
-  socket.on("join-room", ({ code, name, playerKey, spectator = false } = {}, reply) => {
+  socket.on("join-room", async ({ code, name, playerKey, spectator = false } = {}, reply) => {
     code = String(code || "").trim().toUpperCase();
-    const room = rooms.get(code);
+    const room = await loadRoom(code, true);
     if (!room) return reply?.({ ok: false, error: "Room tidak ditemukan." });
     if (spectator) {
       room.spectators.add(socket.id);
@@ -336,8 +392,20 @@ io.on("connection", (socket) => {
     }
     socket.join(code);
     socket.data.roomCode = code;
+    socket.data.playerKey = spectator ? null : playerKey;
     reply?.({ ok: true, code, playerKey: spectator ? null : playerKey });
     broadcast(room);
+  });
+
+  socket.on("sync-room", async () => {
+    const code = socket.data.roomCode;
+    if (!code) return;
+    const room = await loadRoom(code, true);
+    if (!room) return socket.emit("room-expired");
+    const player = room.players.find((item) => item.key === socket.data.playerKey);
+    if (player) { player.socketId = socket.id; player.connected = true; }
+    rooms.set(code, room);
+    socket.emit("state", publicState(room, socket));
   });
 
   socket.on("start-round", () => {
@@ -406,7 +474,7 @@ io.on("connection", (socket) => {
       if (room.opponentMode === "cpu" && !room.players.some((player) => !player.bot)) {
         socket.leave(room.code);
         socket.data.roomCode = null;
-        rooms.delete(room.code);
+        deleteRoom(room.code).catch((error) => console.error("Gagal menghapus room:", error.message));
         return reply?.({ ok: true });
       }
       if (room.status === "playing") {
@@ -424,7 +492,7 @@ io.on("connection", (socket) => {
     socket.leave(room.code);
     socket.data.roomCode = null;
     reply?.({ ok: true });
-    if (!room.players.length && !room.spectators.size) rooms.delete(room.code);
+    if (!room.players.length && !room.spectators.size) deleteRoom(room.code).catch((error) => console.error("Gagal menghapus room:", error.message));
     else broadcast(room);
   });
 

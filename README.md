@@ -122,7 +122,9 @@ Proyek dapat di-deploy ke Vercel yang mendukung WebSocket melalui Fluid Compute.
 vercel --prod
 ```
 
-State room saat ini disimpan dalam memori proses. Untuk penggunaan produksi dengan banyak instance, pindahkan state dan koordinasi room ke Redis.
+Secara lokal, state room disimpan dalam memori proses. Jika environment variable `DATABASE_URL` tersedia, room otomatis disimpan di PostgreSQL selama dua jam. Pemain yang refresh akan masuk kembali menggunakan token sesi dari perangkatnya.
+
+Schema PostgreSQL dibuat otomatis pada koneksi pertama melalui tabel `game_rooms`. Connection string hanya disimpan sebagai environment variable dan tidak boleh dimasukkan ke Git.
 
 ## Instal di HP
 
