@@ -12,9 +12,9 @@ let selectedGame = "41";
 let leavingRoom = false;
 
 function selectGame(type, openLobby = false) {
-  selectedGame = type === "poker" ? "poker" : "41";
+  selectedGame = type === "poker" ? "poker" : type === "sanggong" ? "sanggong" : "41";
   document.querySelectorAll(".game-switch-button").forEach((button) => button.classList.toggle("active", button.dataset.game === selectedGame));
-  $("#selected-game-label").textContent = selectedGame === "poker" ? "Texas Hold'em" : "41 Cards";
+  $("#selected-game-label").textContent = selectedGame === "poker" ? "Texas Hold'em" : selectedGame === "sanggong" ? "Sanggong" : "41 Cards";
   if (openLobby && !game && !$("#lobby-dialog").open) $("#lobby-dialog").showModal();
 }
 
@@ -27,10 +27,11 @@ function cardMarkup(card, extraClass = "") {
 function renderHand() {
   const hand = game?.me?.hand || [];
   const handEl = $("#player-hand");
+  const sanggong = game?.gameType === "sanggong";
   handEl.innerHTML = hand.map((card, index) => {
     const offset = index - (hand.length - 1) / 2;
     const x = offset * (window.innerWidth < 640 ? 49 : 67);
-    return `<button class="hand-card ${game.phase !== "discard" ? "disabled" : ""}" data-card-index="${index}" style="z-index:${index + 10};transform:translateX(calc(-50% + ${x}px)) translateY(${Math.abs(offset) * 4}px) rotate(${offset * 7}deg)">${cardMarkup(card)}</button>`;
+    return `<button class="hand-card ${!sanggong && game.phase !== "discard" ? "disabled" : ""}" data-card-index="${index}" style="z-index:${index + 10};transform:translateX(calc(-50% + ${x}px)) translateY(${Math.abs(offset) * 4}px) rotate(${offset * 7}deg)">${cardMarkup(card)}</button>`;
   }).join("");
   handEl.querySelectorAll(".hand-card").forEach((button) => button.addEventListener("click", () => {
     if (game.phase === "discard") socket.emit("discard-card", Number(button.dataset.cardIndex));
@@ -40,12 +41,13 @@ function renderHand() {
 function renderTable() {
   if (!game) return;
   const poker = game.gameType === "poker";
+  const sanggong = game.gameType === "sanggong";
   const others = game.players.filter((player) => !player.you);
-  $("#opponents").innerHTML = others.map((player, index) => `<div class="opponent ${player.current || (poker && !player.acted && !player.folded) ? "active" : ""} ${player.connected && !player.folded ? "" : "opacity-40"}"><div class="avatar">${player.bot ? "🤖" : avatars[index % avatars.length]}</div><div class="mt-1 max-w-full truncate px-1 text-xs font-semibold">${escapeHtml(player.name)}</div><div class="text-[10px] text-white/45">${player.folded ? "fold" : poker ? `${formatChips(player.chips)} chip` : player.connected ? `${player.cardCount} kartu` : "terputus"}</div><div class="mini-hand">${Array.from({ length: player.cardCount }, () => '<i class="mini-card"></i>').join("")}</div></div>`).join("");
+  $("#opponents").innerHTML = others.map((player, index) => `<div class="opponent ${player.current || (poker && !player.acted && !player.folded) ? "active" : ""} ${player.connected && !player.folded ? "" : "opacity-40"}"><div class="avatar">${player.bot ? "🤖" : avatars[index % avatars.length]}</div><div class="mt-1 max-w-full truncate px-1 text-xs font-semibold">${escapeHtml(player.name)}</div><div class="text-[10px] text-white/45">${player.folded ? "fold" : poker ? `${formatChips(player.chips)} chip` : sanggong ? `Skor ${player.score ?? "-"}` : player.connected ? `${player.cardCount} kartu` : "terputus"}</div><div class="mini-hand">${Array.from({ length: player.cardCount }, () => '<i class="mini-card"></i>').join("")}</div></div>`).join("");
   renderHand();
-  $("#forty-one-piles").classList.toggle("hidden", poker);
+  $("#forty-one-piles").classList.toggle("hidden", poker || sanggong);
   $("#poker-board").classList.toggle("hidden", !poker);
-  $("#message").classList.toggle("hidden", poker);
+  $("#message").classList.toggle("hidden", poker || sanggong);
   if (poker) {
     $("#community-cards").innerHTML = Array.from({ length: 5 }, (_, index) => game.community[index] ? cardMarkup(game.community[index], "poker-card") : '<span class="playing-card poker-card card-back opacity-40"></span>').join("");
     const canAct = game.phase === "poker-action";
@@ -60,10 +62,10 @@ function renderTable() {
     $("#discard-card").outerHTML = cardMarkup(game.discard).replace("<span", '<span id="discard-card"');
   }
   $("#deck-count").textContent = game.deckCount;
-  $("#player-score").textContent = game.spectator ? "Mode Penonton" : poker ? `${formatChips(game.players.find((player) => player.you)?.chips || 0)} chip` : `Skor ${game.me?.score || 0}`;
+  $("#player-score").textContent = game.spectator ? "Mode Penonton" : poker ? `${formatChips(game.players.find((player) => player.you)?.chips || 0)} chip` : sanggong ? `Skor ${game.me?.score || 0}` : `Skor ${game.me?.score || 0}`;
   const myTurn = game.phase === "draw" || game.phase === "discard";
-  $("#turn-badge").textContent = game.status === "waiting" ? "Menunggu pemain" : game.status === "finished" ? "Ronde selesai" : poker ? `Texas Hold'em • ${game.pokerStage}` : myTurn ? `Giliran kamu • ${game.phase === "draw" ? "ambil kartu" : "buang kartu"}` : `Giliran ${game.currentName}`;
-  $("#message").textContent = game.status === "waiting" ? "Permainan belum dimulai." : game.status === "finished" ? "Host dapat memulai ronde baru." : poker ? (game.phase === "poker-action" ? "Pilih Lanjut untuk membuka tahap berikutnya, atau Fold." : "Menunggu keputusan pemain lain…") : game.spectator ? `Kamu menonton permainan • giliran ${game.currentName}` : myTurn ? (game.phase === "draw" ? "Ambil kartu dari tumpukan atau buangan." : "Pilih satu kartu untuk dibuang.") : `Menunggu ${game.currentName}…`;
+  $("#turn-badge").textContent = game.status === "waiting" ? "Menunggu pemain" : game.status === "finished" ? "Ronde selesai" : poker ? `Texas Hold'em • ${game.pokerStage}` : sanggong ? `Sanggong • ${game.phase === "sanggong-reveal" ? "Reveal" : "Menunggu"}` : myTurn ? `Giliran kamu • ${game.phase === "draw" ? "ambil kartu" : "buang kartu"}` : `Giliran ${game.currentName}`;
+  $("#message").textContent = game.status === "waiting" ? "Permainan belum dimulai." : game.status === "finished" ? "Host dapat memulai ronde baru." : poker ? (game.phase === "poker-action" ? "Pilih Lanjut untuk membuka tahap berikutnya, atau Fold." : "Menunggu keputusan pemain lain…") : sanggong ? `Total kartu kamu: ${game.me?.score || 0} (target: digit satuan tertinggi)` : game.spectator ? `Kamu menonton permainan • giliran ${game.currentName}` : myTurn ? (game.phase === "draw" ? "Ambil kartu dari tumpukan atau buangan." : "Pilih satu kartu untuk dibuang.") : `Menunggu ${game.currentName}…`;
   $("#deck").disabled = game.phase !== "draw";
   $("#discard-pile").disabled = game.phase !== "draw" || !game.discard;
   $(".hand-zone").classList.toggle("opacity-30", game.spectator);
@@ -90,7 +92,7 @@ function showResult() {
   const won = game.winners.includes(game.me?.name);
   $("#result-icon").textContent = won ? "🏆" : "🃏";
   $("#result-title").textContent = won ? (game.winners.length > 1 ? "Hasil Seri" : "Kamu Menang!") : `${winnerText} Menang`;
-  $("#result-copy").textContent = game.gameType === "poker" ? `Pemenang: ${winnerText} • ${game.winningHand}.` : game.spectator ? `Pemenang: ${winnerText}.` : `Skor akhir kamu ${game.me.score}. Pemenang: ${winnerText}.`;
+  $("#result-copy").textContent = game.gameType === "poker" ? `Pemenang: ${winnerText} • ${game.winningHand}.` : game.gameType === "sanggong" ? `Pemenang: ${winnerText} • Skor ${game.me?.score || 0}.` : game.spectator ? `Pemenang: ${winnerText}.` : `Skor akhir kamu ${game.me.score}. Pemenang: ${winnerText}.`;
   $("#replay-button").classList.toggle("hidden", !game.host);
   if (!$("#result-dialog").open) $("#result-dialog").showModal();
 }

@@ -111,6 +111,11 @@ function score(hand) {
   return Math.max(...Object.values(totals), 0);
 }
 
+function sanggongScore(hand) {
+  const total = hand.reduce((sum, card) => sum + (card.rank === "A" ? 1 : ["J", "Q", "K"].includes(card.rank) ? 10 : Number(card.rank)), 0);
+  return total % 10;
+}
+
 function pokerFive(cards) {
   const faceValues = { J: 11, Q: 12, K: 13, A: 14 };
   const values = cards.map((card) => faceValues[card.rank] || Number(card.rank)).sort((a, b) => b - a);
@@ -174,7 +179,7 @@ function publicState(room, socket) {
       folded: player.folded || false,
       acted: room.acted?.has(player.key) || false,
       current: index === room.current,
-      score: room.status === "finished" ? score(player.hand) : undefined,
+      score: room.status === "finished" ? (room.gameType === "sanggong" ? sanggongScore(player.hand) : score(player.hand)) : undefined,
       hand: room.status === "finished" ? player.hand : undefined,
       you: player.socketId === socket.id,
     })),
@@ -182,7 +187,9 @@ function publicState(room, socket) {
     discard: room.discard.at(-1) || null,
     phase: room.gameType === "poker"
       ? (me && !me.folded && !room.acted?.has(me.key) && room.status === "playing" ? "poker-action" : "waiting")
-      : (me && room.current === room.players.indexOf(me) ? room.phase : "waiting"),
+      : room.gameType === "sanggong"
+        ? (room.status === "playing" ? "sanggong-reveal" : "waiting")
+        : (me && room.current === room.players.indexOf(me) ? room.phase : "waiting"),
     currentName: room.gameType === "poker" ? "semua pemain" : (room.players[room.current]?.name || "-"),
     winners: room.winners || [],
     winningHand: room.winningHand || null,
@@ -201,8 +208,13 @@ function broadcast(room) {
 
 function finish(room) {
   room.status = "finished";
-  const best = Math.max(...room.players.map((player) => score(player.hand)));
-  room.winners = room.players.filter((player) => score(player.hand) === best).map((player) => player.name);
+  if (room.gameType === "sanggong") {
+    const best = Math.max(...room.players.map((player) => sanggongScore(player.hand)));
+    room.winners = room.players.filter((player) => sanggongScore(player.hand) === best).map((player) => player.name);
+  } else {
+    const best = Math.max(...room.players.map((player) => score(player.hand)));
+    room.winners = room.players.filter((player) => score(player.hand) === best).map((player) => player.name);
+  }
   broadcast(room);
 }
 
@@ -277,6 +289,10 @@ function startRound(room) {
     postBlind(afterDealer[0].player, SMALL_BLIND);
     postBlind(afterDealer[1 % afterDealer.length].player, BIG_BLIND);
     room.phase = "poker-action";
+  } else if (room.gameType === "sanggong") {
+    for (let round = 0; round < 3; round++) room.players.forEach((player) => player.hand.push(room.deck.pop()));
+    room.phase = "sanggong-reveal";
+    setTimeout(() => { if (room.status === "playing") finish(room); }, 3000);
   } else {
     for (let round = 0; round < 4; round++) room.players.forEach((player) => player.hand.push(room.deck.pop()));
     room.discard.push(room.deck.pop());
@@ -347,7 +363,7 @@ io.on("connection", (socket) => {
     const capacity = Math.min(8, Math.max(2, Number(maxPlayers) || 4));
     const room = {
       code,
-      gameType: gameType === "poker" ? "poker" : "41",
+      gameType: gameType === "poker" ? "poker" : gameType === "sanggong" ? "sanggong" : "41",
       opponentMode: opponentMode === "cpu" ? "cpu" : "online",
       maxPlayers: capacity,
       hostKey: key,
@@ -480,6 +496,7 @@ io.on("connection", (socket) => {
       if (room.status === "playing") {
         if (room.players.length < 2) room.gameType === "poker" ? finishPoker(room) : finish(room);
         else if (room.gameType === "poker") settlePoker(room);
+        else if (room.gameType === "sanggong") finish(room);
         else {
           if (index < room.current) room.current--;
           else if (index === room.current) {
@@ -503,6 +520,7 @@ io.on("connection", (socket) => {
     const player = room.players.find((item) => item.socketId === socket.id);
     if (player) player.connected = false;
     if (room.status === "playing" && room.gameType === "poker" && player) { player.folded = true; settlePoker(room); }
+    else if (room.status === "playing" && room.gameType === "sanggong" && player) finish(room);
     else if (room.status === "playing" && room.players[room.current] === player) nextTurn(room);
     else broadcast(room);
   });
