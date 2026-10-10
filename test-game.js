@@ -86,12 +86,14 @@ test("Texas Hold'em membagikan dua kartu dan membuka flop", async () => {
   }
 
   host.emit("poker-action", "check");
-  const showdown = state(guest, (value) => value.status === "finished");
+  const betweenRounds = state(guest, (value) => value.status === "between-rounds");
   guest.emit("poker-action", "check");
-  const finalState = await showdown;
-  assert.ok(finalState.winners.length >= 1);
-  assert.ok(["Royal Flush", "Straight Flush", "Four of a Kind", "Full House", "Flush", "Straight", "Three of a Kind", "Two Pair", "One Pair", "High Card"].includes(finalState.winningHand));
-  assert.equal(finalState.players.reduce((total, player) => total + player.chips, 0), 2000);
+  const handResult = await betweenRounds;
+  assert.ok(handResult.winners.length >= 1);
+  assert.ok(["Royal Flush", "Straight Flush", "Four of a Kind", "Full House", "Flush", "Straight", "Three of a Kind", "Two Pair", "One Pair", "High Card"].includes(handResult.winningHand));
+  assert.equal(handResult.players.reduce((total, player) => total + player.chips, 0), 2000);
+  const nextHand = state(guest, (value) => value.status === "playing");
+  assert.equal((await nextHand).pokerStage, "Pre-flop");
 });
 
 test("Texas Hold'em menerima nominal raise yang dipilih pemain", async () => {
@@ -108,6 +110,34 @@ test("Texas Hold'em menerima nominal raise yang dipilih pemain", async () => {
   const raised = await updated;
   assert.equal(raised.pot, initial.pot + initial.toCall + 60);
   assert.equal(raised.currentBet, hostPlayer.bet + initial.toCall + 60);
+});
+
+test("pemain poker yang kalah all-in tersisih dan turnamen berakhir tanpa mengisi ulang chip", async () => {
+  const host = await client();
+  const guest = await client();
+  const created = await emit(host, "create-room", { name: "Poker E", maxPlayers: 2, gameType: "poker" });
+  await emit(guest, "join-room", { code: created.code, name: "Poker F" });
+  const playing = state(host, (value) => value.status === "playing");
+  host.emit("start-round");
+  const initial = await playing;
+  const guestCanAct = state(guest, (value) => value.phase === "poker-action");
+  host.emit("poker-action", "all-in");
+  await guestCanAct;
+  const tournamentEnd = state(host, (value) => ["between-rounds", "finished"].includes(value.status));
+  guest.emit("poker-action", "all-in");
+  const finished = await tournamentEnd;
+  assert.equal(finished.players.reduce((total, player) => total + player.chips, 0), initial.players.reduce((total, player) => total + player.chips, 0));
+  if (finished.status === "finished") {
+    const winner = finished.players.find((player) => !player.eliminated);
+    const eliminated = finished.players.find((player) => player.eliminated);
+    assert.ok(winner);
+    assert.ok(eliminated);
+    assert.equal(winner.chips, initial.players.reduce((total, player) => total + player.chips, 0));
+    assert.equal(eliminated.chips, 0);
+    assert.deepEqual(finished.winners, [winner.name]);
+  } else {
+    assert.ok(finished.players.every((player) => !player.eliminated));
+  }
 });
 
 test("mode CPU mengisi kursi dan memainkan giliran otomatis", async () => {

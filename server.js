@@ -158,7 +158,7 @@ function pokerHandName(hand) {
 
 function publicState(room, socket) {
   const me = room.players.find((player) => player.socketId === socket.id);
-  const spectator = !me;
+  const spectator = !me || !!me.eliminated;
   return {
     code: room.code,
     gameType: room.gameType,
@@ -167,15 +167,16 @@ function publicState(room, socket) {
     host: me?.key === room.hostKey,
     spectator,
     playerKey: me?.key,
-    me: me ? { name: me.name, hand: me.hand, score: score(me.hand) } : null,
+    me: me ? { name: me.name, hand: me.eliminated ? [] : me.hand, score: score(me.hand) } : null,
     players: room.players.map((player, index) => ({
       name: player.name,
-      cardCount: player.hand.length,
+      cardCount: player.eliminated ? 0 : player.hand.length,
       connected: player.connected,
       bot: player.bot || false,
       chips: player.chips || 0,
       bet: player.bet || 0,
       allIn: player.allIn || false,
+      eliminated: player.eliminated || false,
       folded: player.folded || false,
       acted: room.acted?.has(player.key) || false,
       current: index === room.current,
@@ -186,7 +187,7 @@ function publicState(room, socket) {
     deckCount: room.deck.length,
     discard: room.discard.at(-1) || null,
     phase: room.gameType === "poker"
-      ? (me && !me.folded && !room.acted?.has(me.key) && room.status === "playing" ? "poker-action" : "waiting")
+      ? (me && !me.eliminated && !me.folded && !me.allIn && !room.acted?.has(me.key) && room.status === "playing" ? "poker-action" : "waiting")
       : room.gameType === "sanggong"
         ? (room.status === "playing" ? "sanggong-reveal" : "waiting")
         : (me && room.current === room.players.indexOf(me) ? room.phase : "waiting"),
@@ -219,7 +220,6 @@ function finish(room) {
 }
 
 function finishPoker(room) {
-  room.status = "finished";
   const active = room.players.filter((player) => !player.folded);
   if (active.length <= 1) {
     room.winners = active.map((player) => player.name);
@@ -239,6 +239,18 @@ function finishPoker(room) {
   }
   room.pot = 0;
   room.revealed = 5;
+  room.players.forEach((player) => { player.eliminated = player.chips <= 0; });
+  const remaining = room.players.filter((player) => !player.eliminated);
+  if (remaining.length > 1) {
+    room.status = "between-rounds";
+    broadcast(room);
+    setTimeout(() => {
+      if (room.status === "between-rounds" && rooms.get(room.code) === room) startRound(room);
+    }, 2500);
+    return;
+  }
+  room.status = "finished";
+  if (remaining.length === 1) room.winners = [remaining[0].name];
   broadcast(room);
 }
 
@@ -247,28 +259,29 @@ function settlePoker(room) {
   if (active.length <= 1) return finishPoker(room);
   const settled = active.every((player) => player.allIn || (room.acted.has(player.key) && player.bet === room.currentBet));
   if (settled) {
-    room.acted.clear();
-    room.players.forEach((player) => { player.bet = 0; });
-    room.currentBet = 0;
-    if (room.revealed === 0) { room.revealed = 3; room.pokerStage = "Flop"; }
-    else if (room.revealed === 3) { room.revealed = 4; room.pokerStage = "Turn"; }
-    else if (room.revealed === 4) { room.revealed = 5; room.pokerStage = "River"; }
-    else return finishPoker(room);
+    do {
+      room.acted.clear();
+      room.players.forEach((player) => { player.bet = 0; });
+      room.currentBet = 0;
+      if (room.revealed === 0) { room.revealed = 3; room.pokerStage = "Flop"; }
+      else if (room.revealed === 3) { room.revealed = 4; room.pokerStage = "Turn"; }
+      else if (room.revealed === 4) { room.revealed = 5; room.pokerStage = "River"; }
+      else return finishPoker(room);
+    } while (active.every((player) => player.allIn));
   }
   broadcast(room);
 }
 
 function startRound(room) {
   if (room.players.length < 2) return false;
+  if (room.gameType === "poker" && room.players.filter((player) => !player.eliminated && player.chips > 0).length < 2) return false;
   room.deck = makeDeck();
   room.discard = [];
   room.current = 0;
   room.phase = "draw";
   room.winners = [];
-  room.players.forEach((player) => { player.hand = []; player.folded = false; player.bet = 0; player.allIn = false; });
+  room.players.forEach((player) => { player.hand = []; player.folded = !!player.eliminated || (room.gameType === "poker" && player.chips <= 0); player.bet = 0; player.allIn = false; });
   if (room.gameType === "poker") {
-    if (room.players.filter((player) => player.chips > 0).length < 2) room.players.forEach((player) => { player.chips = STARTING_CHIPS; });
-    room.players.forEach((player) => { player.folded = player.chips <= 0; });
     for (let round = 0; round < 2; round++) room.players.forEach((player) => player.hand.push(room.deck.pop()));
     room.community = Array.from({ length: 5 }, () => room.deck.pop());
     room.revealed = 0;
@@ -427,7 +440,7 @@ io.on("connection", (socket) => {
   socket.on("start-round", () => {
     const room = rooms.get(socket.data.roomCode);
     const player = room?.players.find((item) => item.socketId === socket.id);
-    if (!room || player?.key !== room.hostKey || !["waiting", "finished"].includes(room.status)) return;
+    if (!room || player?.key !== room.hostKey || !["waiting", "finished"].includes(room.status) || (room.gameType === "poker" && room.status === "finished")) return;
     if (!startRound(room)) socket.emit("notice", "Minimal dua pemain untuk memulai.");
   });
 
