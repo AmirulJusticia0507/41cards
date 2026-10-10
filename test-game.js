@@ -6,7 +6,7 @@ const { io } = require("socket.io-client");
 const port = 3200 + Math.floor(Math.random() * 500);
 const server = spawn(process.execPath, ["server.js"], { env: { ...process.env, PORT: port }, stdio: "ignore" });
 const clients = [];
-before(() => new Promise((resolve) => setTimeout(resolve, 600)));
+before(() => new Promise((resolve) => setTimeout(resolve, 1500)));
 after(() => { clients.forEach((client) => client.close()); server.kill(); });
 
 function client() {
@@ -92,6 +92,22 @@ test("Texas Hold'em membagikan dua kartu dan membuka flop", async () => {
   assert.ok(finalState.winners.length >= 1);
   assert.ok(["Royal Flush", "Straight Flush", "Four of a Kind", "Full House", "Flush", "Straight", "Three of a Kind", "Two Pair", "One Pair", "High Card"].includes(finalState.winningHand));
   assert.equal(finalState.players.reduce((total, player) => total + player.chips, 0), 2000);
+});
+
+test("Texas Hold'em menerima nominal raise yang dipilih pemain", async () => {
+  const host = await client();
+  const guest = await client();
+  const created = await emit(host, "create-room", { name: "Poker C", maxPlayers: 2, gameType: "poker" });
+  await emit(guest, "join-room", { code: created.code, name: "Poker D" });
+  const playing = state(host, (value) => value.status === "playing");
+  host.emit("start-round");
+  const initial = await playing;
+  const hostPlayer = initial.players.find((player) => player.you);
+  const updated = state(host, (value) => value.players.find((player) => player.you)?.bet === hostPlayer.bet + initial.toCall + 60);
+  host.emit("poker-action", { type: "raise", amount: 60 });
+  const raised = await updated;
+  assert.equal(raised.pot, initial.pot + initial.toCall + 60);
+  assert.equal(raised.currentBet, hostPlayer.bet + initial.toCall + 60);
 });
 
 test("mode CPU mengisi kursi dan memainkan giliran otomatis", async () => {

@@ -458,11 +458,16 @@ io.on("connection", (socket) => {
     const player = room?.players.find((item) => item.socketId === socket.id);
     if (!room || room.gameType !== "poker" || room.status !== "playing" || !player || player.folded || room.acted.has(player.key)) return;
     const type = typeof action === "string" ? action : action?.type;
+    let raiseAmount = 20;
+    if (type === "raise" && typeof action !== "string") {
+      if (!Number.isSafeInteger(action?.amount) || action.amount < 20) return;
+      raiseAmount = action.amount;
+    }
     if (type === "fold") player.folded = true;
     else {
       const due = Math.max(0, room.currentBet - player.bet);
       let payment = due;
-      if (type === "raise") payment += Math.min(20, Math.max(0, player.chips - due));
+      if (type === "raise") payment += Math.min(raiseAmount, Math.max(0, player.chips - due));
       if (type === "all-in") payment = player.chips;
       payment = Math.min(player.chips, payment);
       player.chips -= payment;
@@ -526,7 +531,7 @@ io.on("connection", (socket) => {
   });
 });
 
-const port = process.env.PORT || 5500;
+const port = Number(process.env.PORT || 5500);
 if (require.main === module) server.listen(port, () => console.log(`41 Cards berjalan di http://localhost:${port}`));
 
 module.exports = server;

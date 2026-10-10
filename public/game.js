@@ -10,6 +10,7 @@ let lastStatus = null;
 let installPrompt = null;
 let selectedGame = "41";
 let leavingRoom = false;
+let raiseAmount = 20;
 
 function selectGame(type, openLobby = false) {
   selectedGame = type === "poker" ? "poker" : type === "sanggong" ? "sanggong" : "41";
@@ -51,9 +52,16 @@ function renderTable() {
   if (poker) {
     $("#community-cards").innerHTML = Array.from({ length: 5 }, (_, index) => game.community[index] ? cardMarkup(game.community[index], "poker-card") : '<span class="playing-card poker-card card-back opacity-40"></span>').join("");
     const canAct = game.phase === "poker-action";
+    const me = game.players.find((player) => player.you);
+    const maxRaise = Math.max(20, (me?.chips || 0) - game.toCall);
+    raiseAmount = Math.min(raiseAmount, maxRaise);
     $("#poker-actions").classList.toggle("opacity-40", !canAct);
     $("#poker-actions").classList.toggle("pointer-events-none", !canAct);
     ["#fold-button", "#check-button", "#raise-button", "#allin-button"].forEach((selector) => { $(selector).disabled = !canAct; });
+    $("#raise-decrease").disabled = !canAct || raiseAmount <= 20;
+    $("#raise-increase").disabled = !canAct || raiseAmount >= maxRaise;
+    $("#raise-amount").textContent = formatChips(raiseAmount);
+    $("#raise-button").textContent = `Raise +${formatChips(raiseAmount)}`;
     $("#poker-action-hint").textContent = canAct ? "Pilih Check/Call, Raise, Fold, atau All-in" : game.spectator ? "Mode penonton" : "Menunggu pemain lain";
     $("#pot-label").textContent = `Pot ${formatChips(game.pot)}`;
     $("#bet-label").textContent = `Taruhan ${formatChips(game.currentBet)}`;
@@ -174,7 +182,17 @@ $("#deck").addEventListener("click", () => socket.emit("draw-card", "deck"));
 $("#discard-pile").addEventListener("click", () => socket.emit("draw-card", "discard"));
 $("#check-button").addEventListener("click", () => socket.emit("poker-action", "check"));
 $("#fold-button").addEventListener("click", () => socket.emit("poker-action", "fold"));
-$("#raise-button").addEventListener("click", () => socket.emit("poker-action", "raise"));
+$("#raise-button").addEventListener("click", () => socket.emit("poker-action", { type: "raise", amount: raiseAmount }));
+$("#raise-decrease").addEventListener("click", () => {
+  raiseAmount = Math.max(20, raiseAmount - 20);
+  if (game) renderTable();
+});
+$("#raise-increase").addEventListener("click", () => {
+  const me = game?.players.find((player) => player.you);
+  const maxRaise = Math.max(20, (me?.chips || 0) - (game?.toCall || 0));
+  raiseAmount = Math.min(maxRaise, raiseAmount + 20);
+  if (game) renderTable();
+});
 $("#allin-button").addEventListener("click", () => socket.emit("poker-action", "all-in"));
 $("#replay-button").addEventListener("click", () => { $("#result-dialog").close(); socket.emit("start-round"); });
 $("#close-result").addEventListener("click", () => $("#result-dialog").close());

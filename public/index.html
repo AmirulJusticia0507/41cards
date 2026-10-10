@@ -71,6 +71,12 @@
         </div>
         <div id="community-cards" class="flex justify-center gap-1.5 sm:gap-3"></div>
         <p id="poker-action-hint" class="mt-5 text-xs font-bold uppercase tracking-[.2em] text-amber-100">Aksi kamu</p>
+        <div id="raise-controls" class="raise-controls mt-2">
+          <span class="raise-label">Besaran raise</span>
+          <button id="raise-decrease" class="raise-adjust-button" aria-label="Kurangi raise">−</button>
+          <span id="raise-amount" class="raise-amount" aria-live="polite">20</span>
+          <button id="raise-increase" class="raise-adjust-button" aria-label="Tambah raise">+</button>
+        </div>
         <div id="poker-actions" class="poker-actions mt-2 transition">
           <button id="fold-button" class="poker-action-button border-red-300/20 bg-red-400/10 text-red-200">Fold</button>
           <button id="check-button" class="poker-action-button bg-amber-300 text-emerald-950">Check</button>
