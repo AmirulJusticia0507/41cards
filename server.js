@@ -116,43 +116,6 @@ function sanggongScore(hand) {
   return total % 10;
 }
 
-function isValidSet(cards) {
-  if (cards.length < 3) return false;
-  const ranks = cards.map((card) => card.rank);
-  const suits = cards.map((card) => card.suit);
-  if (ranks.every((rank) => rank === ranks[0])) return true;
-  const rankOrder = { A: 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, J: 11, Q: 12, K: 13 };
-  const sorted = cards.map((card) => rankOrder[card.rank]).sort((a, b) => a - b);
-  if (!suits.every((suit) => suit === suits[0])) return false;
-  for (let i = 1; i < sorted.length; i++) if (sorted[i] !== sorted[i - 1] + 1) return false;
-  return true;
-}
-
-function remiScore(hand) {
-  const used = new Set();
-  const sorted = [...hand].sort((a, b) => a.rank.localeCompare(b.rank));
-  for (let i = 0; i < sorted.length; i++) {
-    for (let j = i + 2; j < sorted.length; j++) {
-      const set = sorted.slice(i, j + 1);
-      if (isValidSet(set)) set.forEach((_, idx) => used.add(i + idx));
-    }
-  }
-  return hand.reduce((sum, card, idx) => used.has(idx) ? sum : sum + value(card.rank), 0);
-}
-
-function isRemiWin(hand) {
-  if (!hand.length) return true;
-  const groups = [];
-  const sorted = [...hand].sort((a, b) => a.suit.localeCompare(b.suit) || a.rank.localeCompare(b.rank));
-  let current = [sorted[0]];
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].suit === current[0].suit) current.push(sorted[i]);
-    else { groups.push(current); current = [sorted[i]]; }
-  }
-  groups.push(current);
-  return groups.every((group) => isValidSet(group));
-}
-
 function pokerFive(cards) {
   const faceValues = { J: 11, Q: 12, K: 13, A: 14 };
   const values = cards.map((card) => faceValues[card.rank] || Number(card.rank)).sort((a, b) => b - a);
@@ -217,7 +180,7 @@ function publicState(room, socket) {
       folded: player.folded || false,
       acted: room.acted?.has(player.key) || false,
       current: index === room.current,
-      score: room.status === "finished" ? (room.gameType === "sanggong" ? sanggongScore(player.hand) : room.gameType === "remi" ? remiScore(player.hand) : score(player.hand)) : undefined,
+      score: room.status === "finished" ? (room.gameType === "sanggong" ? sanggongScore(player.hand) : score(player.hand)) : undefined,
       hand: room.status === "finished" ? player.hand : undefined,
       you: player.socketId === socket.id,
     })),
@@ -249,14 +212,6 @@ function finish(room) {
   if (room.gameType === "sanggong") {
     const best = Math.max(...room.players.map((player) => sanggongScore(player.hand)));
     room.winners = room.players.filter((player) => sanggongScore(player.hand) === best).map((player) => player.name);
-  } else if (room.gameType === "remi") {
-    const winner = room.players.find((player) => isRemiWin(player.hand));
-    if (winner) {
-      room.winners = [winner.name];
-    } else {
-      const best = Math.min(...room.players.map((player) => remiScore(player.hand)));
-      room.winners = room.players.filter((player) => remiScore(player.hand) === best).map((player) => player.name);
-    }
   } else {
     const best = Math.max(...room.players.map((player) => score(player.hand)));
     room.winners = room.players.filter((player) => score(player.hand) === best).map((player) => player.name);
@@ -351,10 +306,6 @@ function startRound(room) {
     for (let round = 0; round < 3; round++) room.players.forEach((player) => player.hand.push(room.deck.pop()));
     room.phase = "sanggong-reveal";
     setTimeout(() => { if (room.status === "playing") finish(room); }, 3000);
-  } else if (room.gameType === "remi") {
-    for (let round = 0; round < 7; round++) room.players.forEach((player) => player.hand.push(room.deck.pop()));
-    room.discard.push(room.deck.pop());
-    room.phase = "draw";
   } else {
     for (let round = 0; round < 4; round++) room.players.forEach((player) => player.hand.push(room.deck.pop()));
     room.discard.push(room.deck.pop());
@@ -374,10 +325,7 @@ function nextTurn(room) {
   if (attempts > room.players.length) return finish(room);
   room.phase = "draw";
   broadcast(room);
-  if (room.players[room.current].bot) {
-    if (room.gameType === "remi") setTimeout(() => playBotRemi(room), BOT_DELAY_MS);
-    else setTimeout(() => playBot41(room), BOT_DELAY_MS);
-  }
+  if (room.players[room.current].bot) setTimeout(() => playBot41(room), BOT_DELAY_MS);
 }
 
 function bestDiscard(hand) {
@@ -405,28 +353,6 @@ function playBot41(room) {
   nextTurn(room);
 }
 
-function playBotRemi(room) {
-  if (room.status !== "playing") return;
-  const bot = room.players[room.current];
-  if (!bot?.bot) return;
-  if (room.phase === "draw" && room.deck.length) {
-    bot.hand.push(room.deck.pop());
-    room.phase = "discard";
-    broadcast(room);
-  }
-  if (room.phase === "discard") {
-    let bestIndex = 0;
-    let bestScore = Infinity;
-    bot.hand.forEach((_, index) => {
-      const candidate = remiScore(bot.hand.filter((card, cardIndex) => cardIndex !== index));
-      if (candidate < bestScore) { bestScore = candidate; bestIndex = index; }
-    });
-    room.discard.push(bot.hand.splice(bestIndex, 1)[0]);
-    if (isRemiWin(bot.hand)) return finish(room);
-    nextTurn(room);
-  }
-}
-
 function playPokerBots(room) {
   room.players.filter((player) => player.bot && !player.folded && !room.acted.has(player.key)).forEach((bot) => {
     const due = Math.max(0, room.currentBet - bot.bet);
@@ -450,7 +376,7 @@ io.on("connection", (socket) => {
     const capacity = Math.min(8, Math.max(2, Number(maxPlayers) || 4));
     const room = {
       code,
-      gameType: gameType === "poker" ? "poker" : gameType === "sanggong" ? "sanggong" : gameType === "remi" ? "remi" : "41",
+      gameType: gameType === "poker" ? "poker" : gameType === "sanggong" ? "sanggong" : "41",
       opponentMode: opponentMode === "cpu" ? "cpu" : "online",
       maxPlayers: capacity,
       hostKey: key,
@@ -536,8 +462,7 @@ io.on("connection", (socket) => {
     index = Number(index);
     if (!Number.isInteger(index) || index < 0 || index >= player.hand.length) return;
     room.discard.push(player.hand.splice(index, 1)[0]);
-    if (room.gameType === "remi" && isRemiWin(player.hand)) return finish(room);
-    if (room.gameType === "41" && score(player.hand) === 41) return finish(room);
+    if (score(player.hand) === 41) return finish(room);
     nextTurn(room);
   });
 
@@ -589,7 +514,7 @@ io.on("connection", (socket) => {
       if (room.status === "playing") {
         if (room.players.length < 2) room.gameType === "poker" ? finishPoker(room) : finish(room);
         else if (room.gameType === "poker") settlePoker(room);
-        else if (room.gameType === "sanggong" || room.gameType === "remi") finish(room);
+        else if (room.gameType === "sanggong") finish(room);
         else {
           if (index < room.current) room.current--;
           else if (index === room.current) {
@@ -613,7 +538,7 @@ io.on("connection", (socket) => {
     const player = room.players.find((item) => item.socketId === socket.id);
     if (player) player.connected = false;
     if (room.status === "playing" && room.gameType === "poker" && player) { player.folded = true; settlePoker(room); }
-    else if (room.status === "playing" && (room.gameType === "sanggong" || room.gameType === "remi") && player) finish(room);
+    else if (room.status === "playing" && room.gameType === "sanggong" && player) finish(room);
     else if (room.status === "playing" && room.players[room.current] === player) nextTurn(room);
     else broadcast(room);
   });

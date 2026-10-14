@@ -13,9 +13,9 @@ let leavingRoom = false;
 let raiseAmount = 20;
 
 function selectGame(type, openLobby = false) {
-  selectedGame = type === "poker" ? "poker" : type === "sanggong" ? "sanggong" : type === "remi" ? "remi" : "41";
+  selectedGame = type === "poker" ? "poker" : type === "sanggong" ? "sanggong" : "41";
   document.querySelectorAll(".game-switch-button").forEach((button) => button.classList.toggle("active", button.dataset.game === selectedGame));
-  $("#selected-game-label").textContent = selectedGame === "poker" ? "Texas Hold'em" : selectedGame === "sanggong" ? "Sanggong" : selectedGame === "remi" ? "Remi" : "41 Cards";
+  $("#selected-game-label").textContent = selectedGame === "poker" ? "Texas Hold'em" : selectedGame === "sanggong" ? "Sanggong" : "41 Cards";
   if (openLobby && !game && !$("#lobby-dialog").open) $("#lobby-dialog").showModal();
 }
 
@@ -43,14 +43,12 @@ function renderTable() {
   if (!game) return;
   const poker = game.gameType === "poker";
   const sanggong = game.gameType === "sanggong";
-  const remi = game.gameType === "remi";
   const others = game.players.filter((player) => !player.you);
   $("#opponents").innerHTML = others.map((player, index) => `<div class="opponent ${player.current || (poker && !player.acted && !player.folded && !player.eliminated) ? "active" : ""} ${player.connected && !player.folded && !player.eliminated ? "" : "opacity-40"}"><div class="avatar">${player.bot ? "🤖" : avatars[index % avatars.length]}</div><div class="mt-1 max-w-full truncate px-1 text-xs font-semibold">${escapeHtml(player.name)}</div><div class="text-[10px] text-white/45">${player.eliminated ? "Bangkrut • menonton" : player.folded ? "fold" : poker ? `${formatChips(player.chips)} chip` : sanggong ? `Skor ${player.score ?? "-"}` : player.connected ? `${player.cardCount} kartu` : "terputus"}</div><div class="mini-hand">${Array.from({ length: player.cardCount }, () => '<i class="mini-card"></i>').join("")}</div></div>`).join("");
   renderHand();
-  $("#forty-one-piles").classList.toggle("hidden", poker || sanggong || remi);
+  $("#forty-one-piles").classList.toggle("hidden", poker || sanggong);
   $("#poker-board").classList.toggle("hidden", !poker);
-  $("#sanggong-board").classList.toggle("hidden", !(sanggong && game.phase === "sanggong-reveal"));
-  $("#message").classList.toggle("hidden", poker || sanggong || remi);
+  $("#message").classList.toggle("hidden", poker || sanggong);
   if (poker) {
     $("#community-cards").innerHTML = Array.from({ length: 5 }, (_, index) => game.community[index] ? cardMarkup(game.community[index], "poker-card") : '<span class="playing-card poker-card card-back opacity-40"></span>').join("");
     const canAct = game.phase === "poker-action";
@@ -72,10 +70,10 @@ function renderTable() {
     $("#discard-card").outerHTML = cardMarkup(game.discard).replace("<span", '<span id="discard-card"');
   }
   $("#deck-count").textContent = game.deckCount;
-  $("#player-score").textContent = game.spectator ? "Mode Penonton" : poker ? `${formatChips(game.players.find((player) => player.you)?.chips || 0)} chip` : (sanggong || remi) ? `Skor ${game.me?.score || 0}` : `Skor ${game.me?.score || 0}`;
+  $("#player-score").textContent = game.spectator ? "Mode Penonton" : poker ? `${formatChips(game.players.find((player) => player.you)?.chips || 0)} chip` : sanggong ? `Skor ${game.me?.score || 0}` : `Skor ${game.me?.score || 0}`;
   const myTurn = game.phase === "draw" || game.phase === "discard";
-  $("#turn-badge").textContent = game.status === "waiting" ? "Menunggu pemain" : game.status === "between-rounds" ? "Ronde berikutnya segera dimulai" : game.status === "finished" ? (poker ? "Turnamen selesai" : "Ronde selesai") : poker ? `Texas Hold'em • ${game.pokerStage}` : sanggong ? `Sanggong • ${game.phase === "sanggong-reveal" ? "Reveal" : "Menunggu"}` : remi ? `Remi • ${myTurn ? "Giliran kamu" : "Menunggu"}` : myTurn ? `Giliran kamu • ${game.phase === "draw" ? "ambil kartu" : "buang kartu"}` : `Giliran ${game.currentName}`;
-  $("#message").textContent = game.status === "waiting" ? "Permainan belum dimulai." : game.status === "finished" ? "Host dapat memulai ronde baru." : poker ? (game.phase === "poker-action" ? "Pilih Lanjut untuk membuka tahap berikutnya, atau Fold." : "Menunggu keputusan pemain lain…") : sanggong ? `Total kartu kamu: ${game.me?.score || 0} (target: digit satuan tertinggi)` : remi ? (myTurn ? (game.phase === "draw" ? "Ambil kartu dari tumpukan atau buangan." : "Pilih satu kartu untuk dibuang.") : "Menunggu pemain lain…") : game.spectator ? `Kamu menonton permainan • giliran ${game.currentName}` : myTurn ? (game.phase === "draw" ? "Ambil kartu dari tumpukan atau buangan." : "Pilih satu kartu untuk dibuang.") : `Menunggu ${game.currentName}…`;
+  $("#turn-badge").textContent = game.status === "waiting" ? "Menunggu pemain" : game.status === "between-rounds" ? "Ronde berikutnya segera dimulai" : game.status === "finished" ? (poker ? "Turnamen selesai" : "Ronde selesai") : poker ? `Texas Hold'em • ${game.pokerStage}` : sanggong ? `Sanggong • ${game.phase === "sanggong-reveal" ? "Reveal" : "Menunggu"}` : myTurn ? `Giliran kamu • ${game.phase === "draw" ? "ambil kartu" : "buang kartu"}` : `Giliran ${game.currentName}`;
+  $("#message").textContent = game.status === "waiting" ? "Permainan belum dimulai." : game.status === "finished" ? "Host dapat memulai ronde baru." : poker ? (game.phase === "poker-action" ? "Pilih Lanjut untuk membuka tahap berikutnya, atau Fold." : "Menunggu keputusan pemain lain…") : sanggong ? `Total kartu kamu: ${game.me?.score || 0} (target: digit satuan tertinggi)` : game.spectator ? `Kamu menonton permainan • giliran ${game.currentName}` : myTurn ? (game.phase === "draw" ? "Ambil kartu dari tumpukan atau buangan." : "Pilih satu kartu untuk dibuang.") : `Menunggu ${game.currentName}…`;
   $("#deck").disabled = game.phase !== "draw";
   $("#discard-pile").disabled = game.phase !== "draw" || !game.discard;
   $(".hand-zone").classList.toggle("opacity-30", game.spectator);
@@ -103,7 +101,7 @@ function showResult() {
   $("#result-icon").textContent = won ? "🏆" : "🃏";
   $("#result-title").textContent = won ? (game.winners.length > 1 ? "Hasil Seri" : "Kamu Menang!") : `${winnerText} Menang`;
   $("#result-caption").textContent = game.gameType === "poker" ? "Turnamen selesai" : "Ronde selesai";
-  $("#result-copy").textContent = game.gameType === "poker" ? `Juara turnamen: ${winnerText} • ${game.winningHand}.` : game.gameType === "sanggong" ? `Pemenang: ${winnerText} • Skor ${game.me?.score || 0}.` : game.gameType === "remi" ? `Pemenang: ${winnerText} • Skor ${game.me?.score || 0}.` : game.spectator ? `Pemenang: ${winnerText}.` : `Skor akhir kamu ${game.me.score}. Pemenang: ${winnerText}.`;
+  $("#result-copy").textContent = game.gameType === "poker" ? `Juara turnamen: ${winnerText} • ${game.winningHand}.` : game.gameType === "sanggong" ? `Pemenang: ${winnerText} • Skor ${game.me?.score || 0}.` : game.spectator ? `Pemenang: ${winnerText}.` : `Skor akhir kamu ${game.me.score}. Pemenang: ${winnerText}.`;
   $("#replay-button").classList.toggle("hidden", !game.host || game.gameType === "poker");
   if (!$("#result-dialog").open) $("#result-dialog").showModal();
 }
