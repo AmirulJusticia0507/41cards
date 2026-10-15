@@ -19,10 +19,11 @@ function selectGame(type, openLobby = false) {
   if (openLobby && !game && !$("#lobby-dialog").open) $("#lobby-dialog").showModal();
 }
 
-function cardMarkup(card, extraClass = "") {
+function cardMarkup(card, extraClass = "", faceUp = false) {
   if (!card) return '<span id="discard-card" class="playing-card opacity-20"></span>';
   const suit = suitInfo[card.suit];
-  return `<span class="playing-card ${suit.red ? "red" : ""} ${extraClass}"><span class="rank">${card.rank}<span class="corner-suit">${suit.symbol}</span></span><span class="big-suit">${suit.symbol}</span></span>`;
+  const cardClass = faceUp ? "playing-card face-up" : "playing-card face-down";
+  return `<span class="${cardClass} ${suit.red ? "red" : ""} ${extraClass}"><span class="rank">${card.rank}<span class="corner-suit">${suit.symbol}</span></span><span class="big-suit">${suit.symbol}</span></span>`;
 }
 
 function renderHand() {
@@ -32,11 +33,20 @@ function renderHand() {
   handEl.innerHTML = hand.map((card, index) => {
     const offset = index - (hand.length - 1) / 2;
     const x = offset * (window.innerWidth < 640 ? 49 : 67);
-    return `<button class="hand-card ${!sanggong && game.phase !== "discard" ? "disabled" : ""}" data-card-index="${index}" style="z-index:${index + 10};transform:translateX(calc(-50% + ${x}px)) translateY(${Math.abs(offset) * 4}px) rotate(${offset * 7}deg)">${cardMarkup(card)}</button>`;
+    const rotation = offset * 7;
+    const yOffset = Math.abs(offset) * 4;
+    const zDepth = offset * 10;
+    return `<button class="hand-card ${!sanggong && game.phase !== "discard" ? "disabled" : ""}" data-card-index="${index}" style="z-index:${index + 10};transform:translateX(calc(-50% + ${x}px)) translateY(${yOffset}px) rotateX(${-offset * 5}deg) rotate(${rotation}deg) translateZ(${zDepth}px)">${cardMarkup(card, "", game.phase === "discard")}</button>`;
   }).join("");
-  handEl.querySelectorAll(".hand-card").forEach((button) => button.addEventListener("click", () => {
-    if (game.phase === "discard") socket.emit("discard-card", Number(button.dataset.cardIndex));
-  }));
+  handEl.querySelectorAll(".hand-card").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (game.phase === "discard") {
+        socket.emit("discard-card", Number(button.dataset.cardIndex));
+      } else {
+        button.classList.toggle("flipped");
+      }
+    });
+  });
 }
 
 function renderTable() {
